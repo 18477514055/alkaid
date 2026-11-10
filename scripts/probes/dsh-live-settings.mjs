@@ -1,7 +1,9 @@
 // 从 DSH 真配置里抽出与"默认值"相关的段（只读）
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 
-const file = 'C:/Users/24239/.dsh/profiles/desktop/cordis.patch.yml';
+const file = process.argv[2] ?? join(homedir(), '.dsh', 'profiles', 'desktop', 'cordis.patch.yml');
 const lines = readFileSync(file, 'utf8').split(/\r?\n/);
 
 const keys = /contextBudgets|defaultThinkingEfforts|offModelIds|imageToolEnabled|videoToolEnabled|permissionMode|approval|sandbox|defaultModel|compaction|autoCompact|maxSteps|maxTurns/;

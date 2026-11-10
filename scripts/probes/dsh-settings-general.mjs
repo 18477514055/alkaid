@@ -1,7 +1,9 @@
 // 直接抽出 DSH settings-general 的 client.js，找它到底有哪些设置行与默认值
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const ASAR = 'C:/Users/24239/AppData/Local/Programs/DeepSeek Harness/resources/app.asar';
+const ASAR = process.argv[2] ?? join(process.env['LOCALAPPDATA'] ?? homedir(), 'Programs', 'DeepSeek Harness', 'resources', 'app.asar');
 const buf = readFileSync(ASAR);
 const headerSize = buf.readUInt32LE(12);
 const header = JSON.parse(buf.subarray(16, 16 + headerSize).toString('utf8'));
@@ -25,7 +27,7 @@ const target = 'dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-general/lib
 const node = find(target);
 if (node === null) { console.log('没找到', target); process.exit(1); }
 const text = buf.subarray(dataStart + Number(node.offset), dataStart + Number(node.offset) + Number(node.size)).toString('utf8');
-writeFileSync('C:/Users/24239/AppData/Local/Temp/dsh-settings-general.js', text, 'utf8');
+writeFileSync(join(tmpdir(), 'dsh-settings-general.js'), text, 'utf8');
 console.log('已导出', text.length, '字节 → Temp/dsh-settings-general.js');
 
 // 找关键 UI 文案与默认值

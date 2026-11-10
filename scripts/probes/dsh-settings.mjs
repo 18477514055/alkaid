@@ -1,7 +1,9 @@
 // 从 DSH 的 asar 里抽出「设置项 → 默认值」，供对照
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 
-const ASAR = 'C:/Users/24239/AppData/Local/Programs/DeepSeek Harness/resources/app.asar';
+const ASAR = process.argv[2] ?? join(process.env['LOCALAPPDATA'] ?? homedir(), 'Programs', 'DeepSeek Harness', 'resources', 'app.asar');
 const buf = readFileSync(ASAR);
 const headerSize = buf.readUInt32LE(12);
 const header = JSON.parse(buf.subarray(16, 16 + headerSize).toString('utf8'));

@@ -14,7 +14,8 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { currentVersion, migrate } from '../src/core/store/schema.ts';
 
-const REAL = 'C:/Users/24239/AppData/Roaming/alkaid/data/alkaid.db';
+/** ★ 本机真实库路径从环境推导，不写死用户名（发布版不能带个人路径） */
+const REAL = process.argv[2] ?? join(process.env['APPDATA'] ?? homedir(), 'alkaid', 'data', 'alkaid.db');
 const beforeMtime = statSync(REAL).mtimeMs;
 
 const dir = mkdtempSync(join(tmpdir(), 'alkaid-real-copy-'));
