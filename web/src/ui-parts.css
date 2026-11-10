@@ -1,0 +1,474 @@
+/* ============================================================
+   瑶光 · 界面零件样式（MessageActions / SessionMenu / ModelPicker / UsageDock）
+
+   ★ 由 ui-parts.css 管理，App.tsx 只管 import。
+     本文件只放这四个组件的样式，**不要**把全局骨架（.app / .sidebar / .msg …）
+     挪进来，也不要反过来去改 styles.css —— 两边同时动必然撞车。
+
+   ★ 颜色一律走 styles.css 里的令牌（--ink / --surface / --line …），
+     本文件里**不出现任何硬编码色值**。唯一例外是阴影用 `--shadow-pop`，
+     它本身就是令牌。
+   ============================================================ */
+
+/* ── 1. 消息操作条（MessageActions.tsx）──────────────────────
+   ★ 默认 opacity: 0 而不是 display:none —— 后者会让键盘 Tab 到按钮时
+     "焦点落在看不见的东西上"。所以另外用 :focus-within 兜住键盘用户，
+     并且 hover / focus 都要能显形。 */
+
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 16px;
+  opacity: 0;
+  transition: opacity 0.14s;
+}
+
+/* 父元素是消息卡片（.msg）：鼠标进入整条消息才显形，而不是悬停到按钮本身 */
+.msg:hover .msg-actions,
+.msg-actions:focus-within {
+  opacity: 1;
+}
+
+/* 用户消息靠右贴边，操作条也跟着靠右，否则它会孤零零吊在左边 */
+.msg-actions.user {
+  justify-content: flex-end;
+}
+
+.msg-action {
+  border: 0;
+  background: transparent;
+  padding: 1px 6px;
+  margin: 0;
+  font: inherit;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ink-5);
+  border-radius: var(--r-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+
+.msg-action:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--ink-2);
+  border: 0;
+}
+
+.msg-action:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* 复制反馈：成功用状态色，失败也用状态色 —— 但都只染字，不加底色块 */
+.msg-action.ok {
+  color: var(--ok);
+}
+
+.msg-action.fail {
+  color: var(--danger);
+}
+
+/* ── 2. 会话右键菜单（SessionMenu.tsx）───────────────────────
+   ★ 由 portal 挂到 body 上，所以这里必须是 position: fixed，
+     坐标是 clientX / clientY。宽高不写死：内容决定，组件量完再翻边。 */
+
+.session-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 148px;
+  max-width: 260px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-pop);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  /* 菜单本体只接收焦点当键盘入口，不出焦点框 */
+  outline: none;
+}
+
+.session-menu-item {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--r-xs);
+  font-size: var(--fs-xxs);
+  line-height: var(--lh-xxs);
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-menu-item:hover:not(:disabled),
+.session-menu-item.active {
+  background: var(--surface-3);
+  color: var(--ink);
+  border: 0;
+}
+
+/* 危险项：只染字色。右键菜单里做红底块，会让人以为已经执行了 */
+.session-menu-item.danger {
+  color: var(--danger);
+}
+
+.session-menu-item.danger:hover:not(:disabled),
+.session-menu-item.danger.active {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.session-menu-sep {
+  height: 1px;
+  margin: 3px 4px;
+  background: var(--line-2);
+}
+
+/* ── 3. 模型选择器（ModelPicker.tsx）──────────────────────────
+   ★ 浮层向上展开（bottom: 100%）：它挂在 composer 底栏，下面没有空间。 */
+
+.model-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.model-picker-trigger {
+  border: 0;
+  background: transparent;
+  padding: 2px 6px;
+  margin: 0;
+  font: inherit;
+  font-size: 11.5px;
+  line-height: var(--lh-xxs);
+  color: var(--ink-3);
+  border-radius: var(--r-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 32ch;
+  transition: background 0.12s, color 0.12s;
+}
+
+.model-picker-trigger:hover:not(:disabled),
+.model-picker-trigger.open {
+  background: var(--surface-3);
+  color: var(--ink);
+  border: 0;
+}
+
+.model-picker-panel {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  /* 与触发器留一点缝，别贴着；阴影也需要这点空间 */
+  margin-bottom: 6px;
+  z-index: 30;
+  width: 288px;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-pop);
+}
+
+.mp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mp-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-4);
+}
+
+.mp-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-4);
+}
+
+.mp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.mp-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 5px 8px;
+  border-radius: var(--r-xs);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mp-item:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--ink);
+  border: 0;
+}
+
+.mp-item.on {
+  background: var(--surface-4);
+  color: var(--ink);
+}
+
+.mp-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-item .mp-check {
+  flex: none;
+  display: inline-flex;
+  color: var(--ink);
+}
+
+/* ── ③ 模型搜索 + 按提供商分组（提供商作为标签）──────────────
+   ★ 一个网关能列 30 个模型（实测 OpenCode Go 就是），只靠滚动翻是找不到的；
+   ★ 分组头用提供商名当标签，避免"两个连接都有 deepseek-v4.1-flash"时分不清勾的是哪一个。 */
+.mp-search {
+  width: 100%;
+  font-size: 11.5px;
+  border-radius: var(--r-xs);
+}
+
+.mp-group + .mp-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.mp-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 3px;
+}
+
+.mp-provider-tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: 550;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+  background: var(--surface-3);
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.mp-group-count {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 多连接时每项右侧也挂一个提供商小字，滚到中间也知道自己在哪个连接下 */
+.mp-item-provider {
+  flex: none;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font);
+  font-size: 10px;
+  color: var(--ink-4);
+}
+
+/* 模型列表为空时的手填框 */
+.mp-manual {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.mp-manual input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+/* 思考强度：一排分段按钮 */
+.mp-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-3);
+  border-radius: 8px;
+}
+
+.mp-seg button {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.mp-seg button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--ink);
+  border: 0;
+}
+
+.mp-seg button.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(20, 20, 26, 0.06);
+}
+
+.mp-window {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mp-window input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mp-window .mp-unit {
+  flex: none;
+  font-size: 11px;
+  color: var(--ink-5);
+}
+
+.mp-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mp-presets button.on {
+  background: var(--surface-4);
+  border-color: var(--line-3);
+  color: var(--ink);
+}
+
+/* ── 4. 用量抽屉（UsageDock.tsx）────────────────────────────
+   ★ 文档流里的一块，不是 modal：没有 backdrop、没有 position: fixed。
+     高度写死 260–320 之间，内部自己滚，撑开时对话区（flex:1）让位。 */
+
+.usage-dock {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: clamp(260px, 32vh, 320px);
+  background: var(--surface);
+  border-top: 1px solid var(--line-2);
+  box-shadow: 0 -1px 0 var(--line);
+  box-sizing: border-box;
+}
+
+.usage-dock-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px 7px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.usage-dock-head .grow {
+  flex: 1;
+}
+
+.usage-dock-loading {
+  font-size: 11px;
+  color: var(--ink-4);
+}
+
+.usage-dock-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 抽屉里的表格自己滚，表头用 .usage-table th 的 sticky 停住 */
+.usage-dock .usage-table-wrap {
+  flex: none;
+  max-height: 220px;
+}
+
+.usage-dock .facts.wide {
+  flex: none;
+}
+
+.usage-dock .compaction-item {
+  flex: none;
+}
+
+.usage-dock .usage-adjust {
+  flex: none;
+}
+
+/* 窗口档位里当前值：给一点选中感，否则一排按钮看不出哪个是现在生效的 */
+.usage-dock .usage-adjust button.on {
+  background: var(--surface-4);
+  border-color: var(--line-3);
+  color: var(--ink);
+}
+
+/* 窄窗口：抽屉更高一点，否则表格只剩两三行可看 */
+@media (max-width: 700px) {
+  .usage-dock {
+    height: clamp(280px, 46vh, 360px);
+  }
+
+  .model-picker-panel {
+    width: min(288px, calc(100vw - 32px));
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "id": "demo-echo",
+  "name": "演示插件（回声/崩溃）",
+  "entry": "index.ts",
+  "enabled": true
+}

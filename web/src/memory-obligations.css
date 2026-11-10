@@ -1,0 +1,35 @@
+/* 项目义务：历史可见、逐项处理；沿用现有明暗主题令牌。 */
+.memory-obligations { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 9px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface-2); font-size: var(--fs-xxs); }
+.mo-heading { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.mo-heading strong { color: var(--ink-2); font-size: var(--fs-xxs); }
+.mo-heading button { margin-left: auto; }
+.mo-counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.mo-counts > span { display: flex; align-items: center; justify-content: space-between; gap: 5px; padding: 5px 7px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-xs); color: var(--ink-3); }
+.mo-counts b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.mo-details > summary { cursor: pointer; color: var(--ink-2); }
+.mo-body { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; min-width: 0; }
+.mo-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 7px; }
+.mo-filters label { flex: 1; min-width: 100px; }
+.memory-obligations label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xxs); color: var(--ink-3); }
+.memory-obligations select, .memory-obligations textarea { width: 100%; max-width: none; min-width: 0; border-color: var(--line-2); border-radius: var(--r-sm); font-size: var(--fs-xxs); }
+.memory-obligations textarea { min-height: 65px; resize: vertical; }
+.mo-row { border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface); padding: 8px; min-width: 0; overflow-wrap: anywhere; }
+.mo-row > summary { color: var(--ink-2); cursor: pointer; line-height: 1.7; }
+.mo-row-body { display: flex; flex-direction: column; gap: 7px; margin-top: 7px; }
+.mo-meta { color: var(--ink-4); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.mo-status { display: inline-block; padding: 0 5px; border: 1px solid var(--line-2); border-radius: var(--r-xs); background: var(--surface-3); color: var(--ink-2); font-size: 10.5px; }
+.mo-bad { border-color: var(--warn-line); background: var(--warn-soft); }
+.mo-legacy { border-style: dashed; }
+.mo-check { display: flex !important; flex-direction: row !important; align-items: flex-start; gap: 6px !important; margin: 4px 0; }
+.mo-check input { flex: none; margin: 3px 0 0; accent-color: var(--accent); }
+.mo-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mo-resolution { display: flex; flex-direction: column; gap: 7px; padding: 8px; border: 1px solid var(--warn-line); border-radius: var(--r-sm); background: var(--warn-soft); }
+.mo-resolution form { display: flex; flex-direction: column; gap: 8px; }
+.mo-resolution fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.mo-evidence { display: flex; flex-direction: column; gap: 5px; }
+.mo-evidence label { padding: 5px; border: 1px solid var(--line-2); border-radius: var(--r-xs); background: var(--surface); }
+.mo-evidence details { padding: 4px 7px; border-left: 2px solid var(--line-2); }
+.mo-evidence pre { font: 11px / 1.65 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; }
+.mo-error, .mo-notice { border: 1px solid var(--danger-line); border-radius: var(--r-sm); padding: 7px 8px; margin: 0; color: var(--danger); background: var(--danger-soft); font-size: var(--fs-xxs); overflow-wrap: anywhere; }
+.mo-notice { border-color: var(--line-2); color: var(--ink-3); background: var(--surface); }
+.memory-obligations button:focus-visible, .memory-obligations summary:focus-visible { outline: 2px solid var(--ink-4); outline-offset: 2px; }

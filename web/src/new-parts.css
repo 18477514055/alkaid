@@ -1,0 +1,718 @@
+/* ============================================================
+   瑶光 · 新零件样式（SidebarMenus / ArchivePage / ProjectPanelSettings）
+
+   ★ 由 new-parts.css 管理，App.tsx 只管 import。
+     本文件只放这三个组件的样式，**不要**把全局骨架（.app / .sidebar / .msg …）
+     挪进来，也不要反过来去改 styles.css / ui-parts.css / settings-dialog.css
+     —— 两边同时动必然撞车。
+
+   ★ 颜色一律走 styles.css 里的令牌（--ink / --surface* / --line* / --danger* / --warn*
+     / --accent / --r* / --fs-* / --shadow-pop），本文件里**不出现任何硬编码色值**。
+     唯一的"非色值"写法是 `var(--surface)` 当作强调底上的前景色（本主题下即白色，
+     与 styles.css 里 `button.primary` 的取法等价，但不把色号抄进来）。
+
+   ★ 类名统一用 `.menu*` / `.archive-*` / `.panel-settings-*` 三套前缀，
+     与既有的 `.session-menu*` / `.set-*` / `.settings-*` 不重叠。
+   ============================================================ */
+
+/* ── 1. 工作区 / 项目右键菜单（SidebarMenus.tsx）─────────────
+   ★ 由 portal 挂到 body 上，所以必须是 position: fixed，
+     坐标是 clientX / clientY。宽高不写死：内容决定，组件量完再翻边；
+     这里的 max-height 只是兜底，真正把菜单塞回视口的数字由 JS 写进 style。 */
+
+.menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 200px;
+  max-width: min(320px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-pop);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* 菜单本体只接收焦点当键盘入口，不出焦点框 */
+  outline: none;
+}
+
+/* 顶部标签：说明"这个菜单动的是谁"，长名字省略而不是把菜单撑宽 */
+.menu-target {
+  flex: none;
+  padding: 3px 8px 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.01em;
+  color: var(--ink-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-item {
+  flex: none;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: var(--r-xs);
+  font-size: var(--fs-xxs);
+  line-height: var(--lh-xxs);
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-item:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--ink);
+  border: 0;
+}
+
+/* 危险项：只染字色。右键菜单里做红底块，会让人以为已经执行了 */
+.menu-item.danger {
+  color: var(--danger);
+}
+
+.menu-item.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 0;
+}
+
+.menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.menu-sep {
+  flex: none;
+  height: 1px;
+  margin: 3px 4px;
+  background: var(--line-2);
+}
+
+/* 就地表单（重命名 / 删除确认） */
+.menu-form {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 6px 8px 4px;
+}
+
+.menu-form-title {
+  font-size: var(--fs-xxs);
+  font-weight: 600;
+  line-height: var(--lh-xxs);
+  color: var(--ink);
+  word-break: break-word;
+}
+
+.menu-input {
+  width: 100%;
+  font-size: var(--fs-xxs);
+  padding: 5px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.menu-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-5);
+}
+
+.menu-warn {
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--ink-3);
+}
+
+/* 勾了"连文件一起删"以后，同一块牌子变红：后果更重了，视觉上必须跟着变 */
+.menu-warn.strong {
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+  color: var(--danger);
+  font-weight: 550;
+}
+
+.menu-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.menu-check input {
+  flex: none;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.menu-row {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.menu-btn {
+  font-size: 11.5px;
+  padding: 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.menu-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--line-3);
+  color: var(--ink);
+}
+
+.menu-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--surface);
+  font-weight: 600;
+}
+
+.menu-btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--surface);
+}
+
+.menu-btn.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--surface);
+  font-weight: 600;
+}
+
+.menu-btn.danger:hover:not(:disabled) {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--surface);
+  opacity: 0.9;
+}
+
+.menu-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── 2. 归档页（ArchivePage.tsx）──────────────────────────── */
+
+.archive-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+
+.archive-section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.archive-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: var(--lh-xs);
+  color: var(--ink);
+}
+
+.archive-count {
+  min-width: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  text-align: center;
+  color: var(--ink-4);
+}
+
+.archive-desc {
+  margin: 4px 0 8px;
+  font-size: var(--fs-xxs);
+  line-height: 1.7;
+  color: var(--ink-4);
+}
+
+.archive-empty {
+  margin: 6px 0 0;
+  padding: 14px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xxs);
+  color: var(--ink-4);
+  text-align: center;
+}
+
+.archive-loading {
+  margin: 0;
+  font-size: var(--fs-xxs);
+  color: var(--ink-4);
+}
+
+.archive-error {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--danger-line);
+  border-radius: var(--r-sm);
+  background: var(--danger-soft);
+  font-size: var(--fs-xxs);
+  line-height: 1.65;
+  color: var(--danger);
+}
+
+.archive-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--fs-xxs);
+}
+
+.archive-table th {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--line-2);
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.02em;
+  color: var(--ink-4);
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* 时间与操作列宽固定，剩下的给名字（名字再长也只省略，不撑破表格） */
+.archive-table th:nth-child(3) {
+  width: 124px;
+}
+
+.archive-table th:nth-child(4) {
+  width: 136px;
+}
+
+.archive-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  min-width: 0;
+}
+
+.archive-name {
+  font-weight: 550;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.archive-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.archive-when {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+
+.archive-col-actions {
+  text-align: right;
+}
+
+.archive-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.archive-btn {
+  font-size: 11px;
+  padding: 3px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.archive-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--line-3);
+  color: var(--ink);
+}
+
+.archive-btn.danger {
+  border-color: var(--danger-line);
+  color: var(--danger);
+}
+
+.archive-btn.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+  color: var(--danger);
+}
+
+/* 二次确认里那个"真的要删"：实心红，与上面的浅色"删除"按钮区分开 */
+.archive-btn.danger.solid {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--surface);
+  font-weight: 600;
+}
+
+.archive-btn.danger.solid:hover:not(:disabled) {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--surface);
+  opacity: 0.9;
+}
+
+.archive-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 二次确认：插在被点的那一行下面，不弹模态（设置弹窗里没有第二层遮罩的位置） */
+.archive-confirm-row td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line-2);
+  background: var(--surface-2);
+}
+
+.archive-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.archive-confirm-text {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: var(--ink-3);
+  word-break: break-word;
+}
+
+.archive-confirm-text.strong {
+  color: var(--danger);
+  font-weight: 550;
+}
+
+.archive-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.archive-check input {
+  flex: none;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.archive-confirm-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* ── 3. 右栏设置（ProjectPanelSettings.tsx）──────────────── */
+
+.panel-settings {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* 作用域抬头：这份设置到底作用于谁，必须先看见 */
+.panel-settings-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
+.panel-settings-scope {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  font-weight: 550;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-settings-saving {
+  flex: none;
+  font-size: 11px;
+  color: var(--ok);
+}
+
+.panel-settings-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-settings-row:last-of-type {
+  border-bottom: 0;
+}
+
+.panel-settings-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-settings-title {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 550;
+  line-height: var(--lh-xs);
+  color: var(--ink);
+}
+
+.panel-settings-desc {
+  margin-top: 3px;
+  font-size: var(--fs-xxs);
+  line-height: var(--lh-xxs);
+  color: var(--ink-4);
+}
+
+.panel-settings-desc.warn {
+  color: var(--warn);
+}
+
+.panel-settings-control {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 56%;
+}
+
+.panel-settings-tabs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.panel-settings-check {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: var(--fs-xxs);
+  line-height: var(--lh-xxs);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.panel-settings-check input {
+  flex: none;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.panel-settings-check.off {
+  color: var(--ink-5);
+  cursor: not-allowed;
+}
+
+.panel-settings-check.off input {
+  cursor: not-allowed;
+}
+
+.panel-settings-check-text {
+  min-width: 0;
+}
+
+/* 为什么这一项点不了 —— 直接写在旁边，不靠 tooltip */
+.panel-settings-reason {
+  font-size: 11px;
+  color: var(--ink-5);
+}
+
+.panel-settings-select {
+  min-width: 132px;
+  font-size: var(--fs-xxs);
+  border-radius: var(--r-sm);
+}
+
+.panel-settings-width {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-settings-number {
+  width: 104px;
+  padding: 5px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--fs-xxs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.panel-settings-unit {
+  font-size: 11px;
+  color: var(--ink-4);
+}
+
+.panel-settings-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.panel-settings-preset {
+  font-size: 11px;
+  padding: 3px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-3);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-settings-preset:hover:not(:disabled) {
+  border-color: var(--line-3);
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.panel-settings-preset.on {
+  background: var(--surface-4);
+  border-color: var(--line-3);
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.panel-settings-preset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.panel-settings-switch {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.panel-settings-switch:disabled {
+  cursor: not-allowed;
+}
+
+/* 校验 / 自动调整之类的即时反馈 */
+.panel-settings-flag {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: var(--fs-xxs);
+  line-height: 1.7;
+  color: var(--ink-3);
+}
+
+.panel-settings-flag.warn {
+  border-color: var(--warn-line);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+/* "只影响显示"这一句必须显眼但安静：它是这一页最容易被误解的地方 */
+.panel-settings-note {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: var(--fs-xxs);
+  line-height: 1.75;
+  color: var(--ink-4);
+}
+
+.panel-settings-note strong {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+
+/* 窄窗口：设置项左右并排会挤成一团，改成上下堆叠 */
+@media (max-width: 760px) {
+  .panel-settings-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .panel-settings-control {
+    align-items: flex-start;
+    max-width: 100%;
+  }
+
+  .panel-settings-presets {
+    justify-content: flex-start;
+  }
+
+  .archive-table th:nth-child(2) {
+    width: 0;
+  }
+}

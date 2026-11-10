@@ -1,0 +1,84 @@
+/* 项目记忆工作台；仅使用既有主题令牌，宽度由外层检查器控制。 */
+.memory-workbench { display: flex; flex-direction: column; gap: 10px; min-width: 0; container-type: inline-size; }
+.wb-project { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.wb-project > strong { color: var(--ink); font-size: var(--fs-xs); }
+.wb-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.wb-stats button { padding: 6px 7px; text-align: left; font-size: 11px; background: var(--surface-2); border-color: var(--line-2); overflow-wrap: anywhere; }
+.wb-stats b { color: var(--ink); }
+.wb-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 3px; gap: 3px; background: var(--surface-3); border-radius: var(--r-sm); }
+.wb-nav button { border: 0; background: transparent; padding: 5px 3px; font-size: var(--fs-xxs); color: var(--ink-3); }
+.wb-nav button.on { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-pop); }
+.wb-page { display: flex; flex-direction: column; gap: 9px; min-width: 0; font-size: var(--fs-xxs); }
+.wb-page h4 { margin: 5px 0 2px; font-size: var(--fs-xxs); font-weight: 600; color: var(--ink-2); }
+.wb-page p { margin: 5px 0; overflow-wrap: anywhere; }
+.wb-page .md p { margin: 0 0 8px; }
+.wb-page a { display: inline-block; max-width: 100%; font-size: var(--fs-xxs); color: var(--ink-2); text-decoration: underline; overflow-wrap: anywhere; }
+.wb-actions, .wb-inline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wb-inline input { flex: 1; min-width: 90px; font-size: var(--fs-xxs); width: 100%; }
+.wb-field, .wb-editor label { display: flex; flex-direction: column; gap: 4px; color: var(--ink-3); font-size: var(--fs-xxs); min-width: 0; }
+.wb-field select, .wb-field input, .wb-editor select, .wb-editor input:not([type="checkbox"]), .wb-editor textarea { width: 100%; max-width: none; min-width: 0; border-color: var(--line-2); border-radius: var(--r-sm); font-size: var(--fs-xxs); }
+.wb-editor textarea { resize: vertical; min-height: 70px; line-height: 1.65; }
+.wb-editor { border: 1px dashed var(--line-3); border-radius: var(--r-sm); background: var(--surface-2); padding: 8px; }
+.wb-editor > summary { font-size: var(--fs-xxs); color: var(--ink-2); cursor: pointer; font-weight: 550; }
+.wb-editor form { margin-top: 9px; }
+.wb-editor fieldset { display: flex; flex-direction: column; gap: 9px; min-width: 0; padding: 0; margin: 0; border: 0; }
+.wb-editor fieldset > button { align-self: flex-start; }
+.wb-card { min-width: 0; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface-2); padding: 8px; overflow-wrap: anywhere; }
+.wb-card > summary { cursor: pointer; color: var(--ink-2); font-size: var(--fs-xxs); line-height: 1.65; }
+.wb-card[open] > summary { margin-bottom: 7px; }
+.wb-card .wb-card { margin-top: 7px; background: var(--surface); }
+.wb-entry { border-top: 1px solid var(--line-2); padding: 7px 0; min-width: 0; }
+.wb-entry small, .wb-card small { color: var(--ink-4); font-size: 10.5px; overflow-wrap: anywhere; }
+.wb-verbatim { margin: 5px 0; padding: 7px; border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--surface); color: var(--ink-2); font: 11px / 1.7 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 340px; overflow: auto; }
+.wb-record-fields { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.wb-record-fields section > strong { display: block; margin-bottom: 3px; font-size: 11px; color: var(--ink-3); }
+.wb-record-fields .md { white-space: normal; }
+.wb-empty { padding: 8px; margin: 0; border: 1px dashed var(--line-2); border-radius: var(--r-sm); color: var(--ink-4); font-size: var(--fs-xxs); }
+.wb-error, .wb-warning, .wb-notice, .wb-waterline { margin: 0; padding: 8px; border: 1px solid var(--line-2); border-radius: var(--r-sm); font-size: var(--fs-xxs); line-height: 1.7; overflow-wrap: anywhere; }
+.wb-error { color: var(--danger); border-color: var(--danger-line); background: var(--danger-soft); white-space: pre-wrap; }
+.wb-warning { color: var(--ink-2); border-color: var(--warn-line); background: var(--warn-soft); }
+.wb-notice, .wb-waterline { color: var(--ink-3); background: var(--surface-2); }
+.wb-warning p, .wb-waterline p { margin: 5px 0 0; }
+.wb-confirm, .wb-staged { border: 1px solid var(--warn-line); background: var(--warn-soft); border-radius: var(--r-sm); padding: 9px; font-size: var(--fs-xxs); min-width: 0; }
+.wb-confirm strong, .wb-staged > summary { color: var(--ink-2); }
+.wb-staged > summary { cursor: pointer; }
+.wb-check { display: flex; align-items: flex-start; gap: 6px; font-size: var(--fs-xxs); line-height: 1.7; margin: 7px 0; }
+.wb-check input { flex: none; margin: 4px 0 0; accent-color: var(--accent); }
+.wb-source { font-size: 11px; color: var(--ink-4); }
+.wb-source summary { cursor: pointer; overflow-wrap: anywhere; }
+.wb-source[open] .wb-field { margin-top: 6px; }
+.wb-table { width: 100%; overflow-x: auto; }
+.wb-table table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.wb-table th, .wb-table td { padding: 5px 7px; border-bottom: 1px solid var(--line-2); text-align: left; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wb-table th { color: var(--ink-4); font-weight: 500; }
+.wb-table td:first-child { min-width: 110px; max-width: 180px; white-space: normal; overflow-wrap: anywhere; }
+.wb-table small { display: block; font-size: 10px; color: var(--ink-4); }
+.wb-overview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.wb-overview-grid button { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; text-align: left; padding: 9px; border-color: var(--line-2); background: var(--surface-2); }
+.wb-overview-grid strong { font-size: var(--fs-xxs); font-weight: 600; color: var(--ink-2); }
+.wb-overview-grid span { color: var(--ink-4); font-size: 11px; overflow-wrap: anywhere; }
+.memory-workbench button:focus-visible, .memory-workbench summary:focus-visible, .memory-workbench a:focus-visible { outline: 2px solid var(--ink-4); outline-offset: 2px; }
+@container (min-width: 500px) { .wb-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } .wb-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* 默认只保留工作 / 台账 / 日志与独立原则入口。 */
+.wb-main-nav button { display: flex; align-items: center; justify-content: center; gap: 5px; flex-wrap: wrap; padding: 7px 3px; }
+.wb-nav-count { font-size: 10px; color: var(--ink-4); font-weight: 400; white-space: nowrap; }
+.wb-advanced { border-top: 1px solid var(--line-2); padding-top: 9px; font-size: 11px; color: var(--ink-4); }
+.wb-advanced > summary { cursor: pointer; }
+.wb-advanced-body { display: flex; flex-direction: column; gap: 9px; margin-top: 9px; min-width: 0; }
+.wb-record-edit { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; margin-top: 7px; min-width: 0; }
+.wb-record-edit > .wb-editor { align-self: stretch; }
+.wb-principle-review { border-left: 2px solid var(--line-2); padding: 6px 8px; margin: 7px 0; background: var(--surface); font-size: 11px; }
+.wb-principle-review summary { cursor: pointer; color: var(--ink-3); }
+.memory-workbench .memory-config form > label { display: flex; flex-direction: column; gap: 5px; font-size: var(--fs-xxs); color: var(--ink-3); margin: 8px 0; }
+
+.wb-compaction-state { padding: 9px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface-2); font-size: var(--fs-xxs); }
+.wb-compaction-state > strong { color: var(--ink-2); }
+.wb-compaction-duties { display: flex; gap: 5px; flex-wrap: wrap; margin: 7px 0; }
+.wb-compaction-duties span { padding: 2px 6px; border: 1px solid var(--line-2); border-radius: var(--r-xs); color: var(--ink-3); background: var(--surface); font-size: 10.5px; }
+.wb-original-browser { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding-top: 10px; border-top: 1px solid var(--line-2); }
+.wb-original-entry { display: flex; flex-direction: column; gap: 2px; padding: 7px 9px; text-align: left; background: var(--surface-2); border-color: var(--line-2); font-size: var(--fs-xxs); }
+.wb-original-entry small { font-size: 10.5px; color: var(--ink-4); }
+.wb-original-entry.on { background: var(--surface-4); border-color: var(--line-3); }
+.wb-original-pages { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.wb-original-text { max-height: 480px; font-size: 11px; }

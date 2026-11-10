@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  瑶光（Alkaid / η Ursae Majoris）—— 北斗七星的斗柄末端那颗星。
+
+  设计思路：
+  - 意象：北斗七星连成斗形，**末星（瑶光）最亮**，其余六星次之。
+    这样在 16px 时也能一眼看出"有一颗星特别亮"，而不是糊成一团。
+  - 底色：深靛蓝 → 近黑的径向渐变（夜空），圆角方形容器（Windows 图标习惯）。
+  - 主星：青白色（#dff3ff）核心 + 三层辉光 + 四芒星，避免纯白死板。
+  - 其余六星：暖白小点，亮度递减，暗示"斗柄"方向。
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="sky" cx="0.32" cy="0.26" r="0.95">
+      <stop offset="0%" stop-color="#232a5c"/>
+      <stop offset="45%" stop-color="#141635"/>
+      <stop offset="100%" stop-color="#07060f"/>
+    </radialGradient>
+
+    <radialGradient id="glowCore" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="35%" stop-color="#d9f1ff" stop-opacity="0.92"/>
+      <stop offset="100%" stop-color="#5fa8ff" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="glowOuter" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#7fd3ff" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#3b7bd4" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#2a4f9e" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8fd0ff" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#4a6fd0" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#8fd0ff" stop-opacity="0.4"/>
+    </linearGradient>
+
+    <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+  </defs>
+
+  <!-- 圆角方形容器 -->
+  <rect x="8" y="8" width="496" height="496" rx="112" fill="url(#sky)"/>
+  <rect x="8" y="8" width="496" height="496" rx="112" fill="none" stroke="url(#rim)" stroke-width="3"/>
+
+  <!-- 背景碎星（很淡，只为质感；小尺寸下基本看不见） -->
+  <g fill="#cfe4ff" opacity="0.5">
+    <circle cx="392" cy="96" r="2.6"/>
+    <circle cx="120" cy="392" r="2.2"/>
+    <circle cx="430" cy="286" r="1.8"/>
+    <circle cx="70" cy="212" r="1.8"/>
+    <circle cx="336" cy="430" r="2.4"/>
+    <circle cx="446" cy="168" r="1.6"/>
+    <circle cx="86" cy="316" r="1.6"/>
+  </g>
+
+  <!-- 连接线：斗柄三星 → 斗身四星 -->
+  <g stroke="#9db8e8" stroke-width="5" stroke-linecap="round" opacity="0.42" fill="none">
+    <path d="M 98 120 L 152 186 L 208 250 L 272 288"/>
+    <path d="M 272 288 L 332 352 L 250 404 L 206 330 Z"/>
+  </g>
+
+  <!-- 六颗次星（暖白，越靠斗身越暗一点） -->
+  <g fill="#f2f6ff">
+    <circle cx="152" cy="186" r="10" opacity="0.85"/>
+    <circle cx="208" cy="250" r="11" opacity="0.8"/>
+    <circle cx="272" cy="288" r="12" opacity="0.78"/>
+    <circle cx="332" cy="352" r="11" opacity="0.72"/>
+    <circle cx="250" cy="404" r="11" opacity="0.7"/>
+    <circle cx="206" cy="330" r="10" opacity="0.68"/>
+  </g>
+
+  <!-- 瑶光：斗柄末端的主星 -->
+  <g>
+    <circle cx="98" cy="120" r="96" fill="url(#glowOuter)"/>
+    <circle cx="98" cy="120" r="52" fill="url(#glowCore)" opacity="0.95"/>
+    <circle cx="98" cy="120" r="26" fill="#ffffff"/>
+    <!-- 四芒 -->
+    <g fill="#eaf7ff">
+      <path d="M 98 42 L 105 112 L 98 120 L 91 112 Z" opacity="0.9"/>
+      <path d="M 98 198 L 105 128 L 98 120 L 91 128 Z" opacity="0.75"/>
+      <path d="M 20 120 L 90 113 L 98 120 L 90 127 Z" opacity="0.75"/>
+      <path d="M 176 120 L 106 113 L 98 120 L 106 127 Z" opacity="0.9"/>
+    </g>
+  </g>
+</svg>

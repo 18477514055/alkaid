@@ -1,0 +1,1005 @@
+[
+  {
+    "id": "deepseek",
+    "displayName": "DeepSeek",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.deepseek.com",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "deepseek-flash",
+      "deepseek-v4-pro"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://platform.deepseek.com/api_keys",
+    "note": "另有 Anthropic 兼容端点 /anthropic（本项目不用）"
+  },
+  {
+    "id": "moonshotai",
+    "displayName": "Kimi（月之暗面）",
+    "endpoints": [
+      {
+        "label": "国内站",
+        "baseUrl": "https://api.moonshot.cn/v1",
+        "note": "",
+        "recommended": true
+      },
+      {
+        "label": "国际站",
+        "baseUrl": "https://api.moonshot.ai/v1",
+        "note": "Key 与国内站不通用",
+        "recommended": false
+      }
+    ],
+    "commonModels": [
+      "kimi-k3.1-pro",
+      "moonshot-v1-auto"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://platform.kimi.com/docs/api/chat",
+    "note": "Key 与国内站不通用"
+  },
+  {
+    "id": "kimi-coding",
+    "displayName": "Kimi 编程套餐",
+    "endpoints": [
+      {
+        "label": "Coding",
+        "baseUrl": "https://api.kimi.com/coding/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://platform.kimi.com/",
+    "note": "套餐专用端点，与按量计费的 Key 不通用"
+  },
+  {
+    "id": "qwen",
+    "displayName": "通义千问（阿里云百炼）",
+    "endpoints": [
+      {
+        "label": "Token Plan（新加坡）",
+        "baseUrl": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+        "note": "套餐制，用套餐 Key",
+        "recommended": true
+      },
+      {
+        "label": "Token Plan（北京）",
+        "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+        "note": "套餐制，用套餐 Key",
+        "recommended": false
+      },
+      {
+        "label": "API 直连（北京，业务空间）",
+        "baseUrl": "https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+        "note": "按量计费；{WorkspaceId} 换成你的业务空间 ID",
+        "recommended": false
+      },
+      {
+        "label": "API 直连（北京，旧域名）",
+        "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "note": "官方说仍可用，建议迁到专属域名",
+        "recommended": false
+      },
+      {
+        "label": "API 直连（新加坡）",
+        "baseUrl": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        "note": "Key 与北京地域不通用",
+        "recommended": false
+      }
+    ],
+    "commonModels": [
+      "qwen3.8-max",
+      "qwen-plus",
+      "qwen-max"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope",
+    "note": "套餐制，用套餐 Key"
+  },
+  {
+    "id": "zai",
+    "displayName": "智谱 GLM",
+    "endpoints": [
+      {
+        "label": "国内编程套餐",
+        "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+        "note": "bigmodel.cn，编程套餐专用路径",
+        "recommended": true
+      },
+      {
+        "label": "国际站",
+        "baseUrl": "https://api.z.ai/api/coding/paas/v4",
+        "note": "z.ai，国际站 Key",
+        "recommended": false
+      },
+      {
+        "label": "标准 API（国内）",
+        "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+        "note": "按量计费，非编程套餐",
+        "recommended": false
+      }
+    ],
+    "commonModels": [
+      "glm-5.3",
+      "glm-5.3-flash",
+      "glm-4-plus"
+    ],
+    "supportsModelList": false,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://docs.bigmodel.cn/cn/guide/start/introduction",
+    "note": "bigmodel.cn，编程套餐专用路径"
+  },
+  {
+    "id": "xiaomi",
+    "displayName": "小米 MiMo",
+    "endpoints": [
+      {
+        "label": "API 直连",
+        "baseUrl": "https://api.xiaomimimo.com/v1",
+        "note": "",
+        "recommended": true
+      },
+      {
+        "label": "Token Plan（中国）",
+        "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
+        "note": "套餐制",
+        "recommended": false
+      },
+      {
+        "label": "Token Plan（新加坡）",
+        "baseUrl": "https://token-plan-sgp.xiaomimimo.com/v1",
+        "note": "套餐制",
+        "recommended": false
+      },
+      {
+        "label": "Token Plan（阿姆斯特丹）",
+        "baseUrl": "https://token-plan-ams.xiaomimimo.com/v1",
+        "note": "套餐制",
+        "recommended": false
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://platform.xiaomimimo.com/",
+    "note": "套餐制"
+  },
+  {
+    "id": "minimax",
+    "displayName": "MiniMax",
+    "endpoints": [
+      {
+        "label": "国际站",
+        "baseUrl": "https://api.minimax.io/anthropic",
+        "note": "★ DSH 里记的是 Anthropic 端点，OpenAI 兼容请自行确认",
+        "recommended": false
+      },
+      {
+        "label": "国内站",
+        "baseUrl": "https://api.minimaxi.com/anthropic",
+        "note": "同上",
+        "recommended": false
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": false,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ DSH 里记的是 Anthropic 端点，OpenAI 兼容请自行确认"
+  },
+  {
+    "id": "siliconflow",
+    "displayName": "硅基流动",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.siliconflow.cn/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "deepseek-ai/DeepSeek-V4-Flash",
+      "moonshotai/Kimi-K2.7-Code",
+      "Qwen/Qwen3-235B"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://docs.siliconflow.cn/docs/api/chat-completions-post",
+    "note": "聚合平台，模型名带组织前缀"
+  },
+  {
+    "id": "openai",
+    "displayName": "OpenAI",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.openai.com/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "gpt-4o",
+      "gpt-4o-mini",
+      "o3"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://platform.openai.com/api-keys",
+    "note": "★ Chat Completions 不返回推理内容；推理走 Responses API（未接）"
+  },
+  {
+    "id": "openrouter",
+    "displayName": "OpenRouter",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://openrouter.ai/api/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "openai/gpt-4o",
+      "anthropic/claude-sonnet-4",
+      "google/gemini-2.5-pro",
+      "deepseek/deepseek-chat"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://openrouter.ai/docs/quickstart",
+    "note": "聚合平台；推理字段归一化成 reasoning + reasoning_details"
+  },
+  {
+    "id": "groq",
+    "displayName": "Groq",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.groq.com/openai/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://console.groq.com/docs/openai",
+    "note": "以推理速度著称"
+  },
+  {
+    "id": "xai",
+    "displayName": "xAI Grok",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.x.ai/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "grok-4",
+      "grok-3"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://docs.x.ai/",
+    "note": ""
+  },
+  {
+    "id": "mistral",
+    "displayName": "Mistral",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.mistral.ai/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://docs.mistral.ai/",
+    "note": ""
+  },
+  {
+    "id": "together",
+    "displayName": "Together AI",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.together.ai/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://docs.together.ai/",
+    "note": ""
+  },
+  {
+    "id": "fireworks",
+    "displayName": "Fireworks AI",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.fireworks.ai/inference/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://docs.fireworks.ai/",
+    "note": ""
+  },
+  {
+    "id": "cerebras",
+    "displayName": "Cerebras",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.cerebras.ai/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://inference-docs.cerebras.ai/",
+    "note": ""
+  },
+  {
+    "id": "huggingface",
+    "displayName": "Hugging Face",
+    "endpoints": [
+      {
+        "label": "Router",
+        "baseUrl": "https://router.huggingface.co/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://huggingface.co/docs/inference-providers",
+    "note": ""
+  },
+  {
+    "id": "vercel-ai-gateway",
+    "displayName": "Vercel AI Gateway",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://ai-gateway.vercel.sh/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://vercel.com/docs/ai-gateway",
+    "note": ""
+  },
+  {
+    "id": "baseten",
+    "displayName": "Baseten",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://inference.baseten.co/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": ""
+  },
+  {
+    "id": "nvidia",
+    "displayName": "NVIDIA NIM",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://integrate.api.nvidia.com/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://build.nvidia.com/",
+    "note": ""
+  },
+  {
+    "id": "ollama",
+    "displayName": "Ollama（本地）",
+    "endpoints": [
+      {
+        "label": "本机",
+        "baseUrl": "http://127.0.0.1:11434/v1",
+        "note": "需在 network_security_config 放行明文",
+        "recommended": true
+      },
+      {
+        "label": "局域网另一台机器",
+        "baseUrl": "http://192.168.1.x:11434/v1",
+        "note": "换成实际 IP；NSC 需显式加该 IP",
+        "recommended": false
+      }
+    ],
+    "commonModels": [
+      "llama3.2",
+      "qwen2.5",
+      "deepseek-r1"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://github.com/ollama/ollama/blob/main/docs/openai.md",
+    "note": "需在 network_security_config 放行明文"
+  },
+  {
+    "id": "lmstudio",
+    "displayName": "LM Studio（本地）",
+    "endpoints": [
+      {
+        "label": "本机",
+        "baseUrl": "http://127.0.0.1:1234/v1",
+        "note": "需放行明文",
+        "recommended": false
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "https://lmstudio.ai/docs/api/openai-api",
+    "note": "需放行明文"
+  },
+  {
+    "id": "ant-ling",
+    "displayName": "蚂蚁百灵",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.ant-ling.com/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "OpenAI 兼容"
+  },
+  {
+    "id": "anthropic",
+    "displayName": "Anthropic（Claude）",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.anthropic.com",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": false,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 原生 Messages 协议，本版未实现，会提示不支持；如需可用请走自定义 API 填兼容网关"
+  },
+  {
+    "id": "github-copilot",
+    "displayName": "GitHub Copilot",
+    "endpoints": [
+      {
+        "label": "个人版",
+        "baseUrl": "https://api.individual.githubcopilot.com",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": false,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "需要 Copilot 订阅签发的 token，不是普通 API Key"
+  },
+  {
+    "id": "google",
+    "displayName": "Google（Gemini）",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": false,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 原生 generateContent 协议，本版未实现；如需可用请走自定义 API 填兼容网关"
+  },
+  {
+    "id": "meta",
+    "displayName": "Meta",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://api.meta.ai/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "OpenAI 兼容"
+  },
+  {
+    "id": "minimax-cn",
+    "displayName": "MiniMax（国内站）",
+    "endpoints": [
+      {
+        "label": "Anthropic 兼容",
+        "baseUrl": "https://api.minimaxi.com/anthropic",
+        "note": "需兼容网关或客户端支持",
+        "recommended": false
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": false,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "需兼容网关或客户端支持"
+  },
+  {
+    "id": "moonshotai-cn",
+    "displayName": "Kimi（国内站 .cn）",
+    "endpoints": [
+      {
+        "label": "国内站",
+        "baseUrl": "https://api.moonshot.cn/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "kimi-k2-0905-preview",
+      "moonshot-v1-128k"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 与 .ai 站的 Key 不通用"
+  },
+  {
+    "id": "openai-codex",
+    "displayName": "OpenAI Codex",
+    "endpoints": [
+      {
+        "label": "ChatGPT 后端",
+        "baseUrl": "https://chatgpt.com/backend-api",
+        "note": "",
+        "recommended": false
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": false,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 走 ChatGPT 订阅登录态，不是 API Key，本版未实现"
+  },
+  {
+    "id": "qwen-token-plan",
+    "displayName": "通义 Token Plan（新加坡）",
+    "endpoints": [
+      {
+        "label": "新加坡",
+        "baseUrl": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "qwen3-max",
+      "qwen-plus"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 套餐 Key 与按量计费 Key 不通用；区域绑错会 401"
+  },
+  {
+    "id": "qwen-token-plan-cn",
+    "displayName": "通义 Token Plan（北京）",
+    "endpoints": [
+      {
+        "label": "北京",
+        "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "qwen3-max",
+      "qwen-plus"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 套餐 Key 与按量计费 Key 不通用；区域绑错会 401"
+  },
+  {
+    "id": "radius",
+    "displayName": "Radius",
+    "endpoints": [
+      {
+        "label": "官方",
+        "baseUrl": "https://radius.pi.dev/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": false,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "OpenAI 兼容"
+  },
+  {
+    "id": "xiaomi-token-plan-ams",
+    "displayName": "小米 Token Plan（阿姆斯特丹）",
+    "endpoints": [
+      {
+        "label": "阿姆斯特丹",
+        "baseUrl": "https://token-plan-ams.xiaomimimo.com/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ Token Plan 走独立域名，套餐 Key 与按量 Key 不通用"
+  },
+  {
+    "id": "xiaomi-token-plan-cn",
+    "displayName": "小米 Token Plan（国内）",
+    "endpoints": [
+      {
+        "label": "国内",
+        "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ Token Plan 走独立域名，套餐 Key 与按量 Key 不通用"
+  },
+  {
+    "id": "xiaomi-token-plan-sgp",
+    "displayName": "小米 Token Plan（新加坡）",
+    "endpoints": [
+      {
+        "label": "新加坡",
+        "baseUrl": "https://token-plan-sgp.xiaomimimo.com/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ Token Plan 走独立域名，套餐 Key 与按量 Key 不通用"
+  },
+  {
+    "id": "zai-coding-cn",
+    "displayName": "智谱 Coding Plan（国内）",
+    "endpoints": [
+      {
+        "label": "国内",
+        "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ Coding Plan 与普通 API Key 不通用"
+  },
+  {
+    "id": "custom",
+    "displayName": "自定义",
+    "endpoints": [
+      {
+        "label": "手动填写",
+        "baseUrl": "",
+        "note": "任何 OpenAI 兼容的 base URL",
+        "recommended": false
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "任何 OpenAI 兼容的 base URL"
+  },
+  {
+    "id": "opencode",
+    "displayName": "OpenCode Zen（按量计费）",
+    "endpoints": [
+      {
+        "label": "按量计费",
+        "baseUrl": "https://opencode.ai/inference/openai/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "deepseek-v4.1-flash",
+      "glm-5.3",
+      "kimi-k3",
+      "qwen3.8-max"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "https://opencode.ai/inference/v1/models",
+    "defaultHeaders": {},
+    "sessionHeaderName": "x-opencode-session",
+    "docUrl": "",
+    "note": "★ 套餐（Go）与按量计费的 Key 不通用，别选错接入点"
+  },
+  {
+    "id": "opencode-go",
+    "displayName": "OpenCode Go（订阅）",
+    "endpoints": [
+      {
+        "label": "Go 订阅",
+        "baseUrl": "https://opencode.ai/inference/go/openai/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "deepseek-v4.1-flash",
+      "glm-5.3",
+      "kimi-k3"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "https://opencode.ai/inference/go/v1/models",
+    "defaultHeaders": {},
+    "sessionHeaderName": "x-opencode-session",
+    "docUrl": "",
+    "note": "★ 需要 Go 订阅；与按量计费的 Key 不通用"
+  },
+  {
+    "id": "cloudflare-workers-ai",
+    "displayName": "Cloudflare Workers AI",
+    "endpoints": [
+      {
+        "label": "账户级",
+        "baseUrl": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "@cf/meta/llama-3.1-8b-instruct"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 把 {account_id} 换成你的 Cloudflare 账户 ID"
+  },
+  {
+    "id": "cloudflare-ai-gateway",
+    "displayName": "Cloudflare AI Gateway",
+    "endpoints": [
+      {
+        "label": "网关",
+        "baseUrl": "https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/compat",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 把 {account_id} / {gateway_id} 换成你自己的；网关需先在 CF 后台建好"
+  },
+  {
+    "id": "google-vertex",
+    "displayName": "Google Vertex AI",
+    "endpoints": [
+      {
+        "label": "OpenAI 兼容",
+        "baseUrl": "https://{region}-aiplatform.googleapis.com/v1/projects/{project}/locations/{region}/endpoints/openapi",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": false,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 替换 {region} 与 {project}；鉴权走 Google 凭据，不是普通 API Key"
+  },
+  {
+    "id": "amazon-bedrock",
+    "displayName": "Amazon Bedrock",
+    "endpoints": [
+      {
+        "label": "OpenAI 兼容",
+        "baseUrl": "https://bedrock-runtime.{region}.amazonaws.com/openai/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": false,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 替换 {region}；鉴权用 AWS SigV4（不是 Bearer Key），本版不支持签名"
+  },
+  {
+    "id": "azure",
+    "displayName": "Azure OpenAI",
+    "endpoints": [
+      {
+        "label": "资源级",
+        "baseUrl": "https://{resource}.openai.azure.com/openai/deployments/{deployment}",
+        "note": "",
+        "recommended": false
+      }
+    ],
+    "commonModels": [],
+    "supportsModelList": false,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 路径与鉴权头都非标准（api-key + api-version），本版未实现；建议走自定义网关"
+  },
+  {
+    "id": "qwen-token-plan-individual",
+    "displayName": "通义 Token Plan（个人版）",
+    "endpoints": [
+      {
+        "label": "新加坡",
+        "baseUrl": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+        "note": "",
+        "recommended": true
+      }
+    ],
+    "commonModels": [
+      "qwen3-max",
+      "qwen-plus"
+    ],
+    "supportsModelList": true,
+    "modelsPathOverride": "",
+    "defaultHeaders": {},
+    "sessionHeaderName": "",
+    "docUrl": "",
+    "note": "★ 个人版套餐 Key，与按量计费 / 企业版都不通用"
+  }
+]

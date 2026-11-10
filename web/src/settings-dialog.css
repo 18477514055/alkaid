@@ -1,0 +1,416 @@
+/**
+ * 设置面板 + 头像菜单的样式。
+ * ★ 由 settings-dialog.css 管理；App.tsx 只管 import 与渲染。
+ * ★ 颜色一律走 styles.css 的令牌，不写死 hex。
+ */
+
+.settings-dialog {
+  width: min(760px, 100%);
+  height: min(680px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 12px 18px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.settings-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.settings-head .grow {
+  flex: 1;
+}
+
+.settings-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ok);
+}
+
+.settings-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  /*
+   * ★ 必须显式给行高 minmax(0, 1fr)。
+   *   隐式行是 auto ⇒ 内容多高行就多高，右栏的 overflow-y:auto 永远拿不到可滚动的视口，
+   *   内容会顶出 .settings-dialog（它有 overflow:hidden）被直接裁掉 ——
+   *   「模型」页签接上表单后表现为底部保存按钮看不见、只露出半个「关闭」。
+   */
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* ── 左侧页签 ── */
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  border-right: 1px solid var(--line);
+  background: var(--surface-module);
+  overflow-y: auto;
+}
+
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+  text-align: left;
+}
+
+.settings-tab:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.settings-tab.on {
+  background: var(--surface-4);
+  color: var(--ink);
+  font-weight: 550;
+}
+
+/* 箭头只在选中项出现，提示"这就是当前页" */
+.settings-tab .chev {
+  margin-left: auto;
+  opacity: 0;
+  display: inline-flex;
+  color: var(--ink-4);
+}
+
+.settings-tab.on .chev {
+  opacity: 1;
+}
+
+/* ── 右侧内容 ── */
+.settings-pane {
+  padding: 6px 20px 20px;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.set-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.set-row:last-of-type {
+  border-bottom: 0;
+}
+
+.set-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.set-row-title {
+  font-size: var(--fs-xs);
+  font-weight: 550;
+  color: var(--ink);
+  line-height: var(--lh-xs);
+}
+
+.set-row-desc {
+  margin-top: 3px;
+  font-size: var(--fs-xxs);
+  line-height: var(--lh-xxs);
+  color: var(--ink-4);
+}
+
+.set-row-control {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 1px;
+}
+
+/* 下拉：原生 select + 一层壳 */
+.set-select {
+  appearance: none;
+  min-width: 132px;
+  padding: 6px 28px 6px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  /* 自己画一个箭头：原生箭头在深色下不可控 */
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-4) 50%),
+    linear-gradient(135deg, var(--ink-4) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 11px) 52%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+
+.set-select:hover {
+  border-color: var(--line-3);
+  color: var(--ink);
+}
+
+.set-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.set-number {
+  width: 104px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.set-unit {
+  font-size: var(--fs-xxs);
+  color: var(--ink-4);
+}
+
+.set-chips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.set-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-3);
+  font-size: var(--fs-xxs);
+}
+
+.set-chip:hover:not(:disabled) {
+  border-color: var(--line-3);
+  color: var(--ink);
+}
+
+.set-chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.settings-note {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: var(--fs-xxs);
+  line-height: 1.75;
+  color: var(--ink-4);
+}
+
+.settings-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xxs);
+  color: var(--ink-4);
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+
+.settings-item .name {
+  font-weight: 550;
+  color: var(--ink);
+}
+
+.settings-item .meta {
+  margin-left: auto;
+  font-size: var(--fs-xxs);
+  color: var(--ink-4);
+  max-width: 30ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * 内嵌的既有面板（SetupDialog / ToolsPanel）本来是"自己一个弹窗"，
+ * 塞进设置里时要把它们的遮罩与边框去掉，否则会出现"弹窗套弹窗"。
+ */
+.settings-embed > .modal-backdrop {
+  position: static;
+  inset: auto;
+  background: transparent;
+  backdrop-filter: none;
+  padding: 0;
+  display: block;
+}
+
+.settings-embed .modal {
+  width: 100%;
+  max-height: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+/*
+ * 内嵌面板自带的「关闭」按钮要去掉：
+ * 设置面板本身已经有关闭 ×，再留一个「关闭」就是两个开关做同一件事；
+ * 而且那个「关闭」被接到 setTab('general')，点了不关窗、只是跳回通用页 —— 更困惑。
+ * ★ 只隐藏那一个按钮（.settings-embed .close-only），**不能**整块藏 .modal-actions ——
+ *   「模型」页签的配置步骤把「上一步 / 保存」也放在 .modal-actions 里，一起藏掉就没法保存了。
+ * ★ 用 display:none 而不是 visibility/opacity：要把它从 Tab 键序与无障碍树里一并移除。
+ */
+.settings-embed .modal-actions.close-only,
+.settings-embed .modal-head .icon-btn,
+.settings-embed .close-only {
+  display: none;
+}
+
+/* ── 头像菜单 ── */
+.avatar-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+
+.avatar-menu {
+  position: fixed;
+  min-width: 148px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-pop);
+}
+
+.avatar-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+  text-align: left;
+}
+
+.avatar-menu-item:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--ink);
+  border: 0;
+}
+
+/* 头像本身可点：给一点 hover 反馈，让人知道这不是纯装饰 */
+.side-foot .avatar {
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.side-foot .avatar:hover {
+  background: var(--surface-4);
+  border-color: var(--line-3);
+}
+
+/* ★ 子代理模型白名单的勾选清单（2026-11-10）
+   判据：模型可能很多，所以分组显示、限高滚动；
+   每个连接一组，避免"同名模型分不清是哪家"。 */
+.set-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 8px;
+  margin-top: 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.set-model-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.set-model-provider {
+  font-size: var(--fs-xxs);
+  color: var(--ink-3);
+  opacity: 0.8;
+}
+
+.set-model-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xxs);
+  cursor: pointer;
+}
+
+.set-model-row input {
+  flex: none;
+}
+
+.set-compaction-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; max-width: 180px; }
+.set-compaction-error { margin: 0; font-size: var(--fs-xxs); line-height: 1.6; color: var(--danger); overflow-wrap: anywhere; }
+.prompt-projection { padding: 8px 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--surface-2); min-width: 0; }
+.prompt-projection > summary { cursor: pointer; color: var(--ink-2); font-size: var(--fs-xxs); }
+.prompt-projection .prompt-body { max-height: 360px; overflow: auto; }
+.prompt-projection-title { margin: 5px 0 0; font-size: var(--fs-xs); font-weight: 600; color: var(--ink-3); }

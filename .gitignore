@@ -1,0 +1,22 @@
+# 依赖与构建产物不进版本库
+node_modules/
+dist/
+release/
+
+# 运行时数据库与日志
+*.db
+*.db-wal
+*.db-shm
+.alkaid-data/
+.alkaid-demo/
+*.log
+
+# 测试覆盖率
+coverage/
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

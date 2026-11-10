@@ -1,0 +1,286 @@
+/**
+ * 委派看板的样式。
+ *
+ * ★ 判据：**状态要在一眼之内分得开**（进行中/已完成/失败），因为它们代表三种完全不同的
+ *   下一步动作（等 / 读结论 / 重派）。颜色照项目既有配色，不引入新色板：
+ *   主色是墨黑 #0f1115，强调色沿用面板里已有的绿/黄/红。
+ */
+
+.delegation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.delegation-count {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.delegation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.delegation-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.delegation-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.delegation-head:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.delegation-status {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+/* 进行中：用中性色，不要用"警告黄" —— 它只是还没完，不是有问题 */
+.delegation-status.running {
+  background: rgba(120, 170, 255, 0.16);
+  color: #9dc0ff;
+}
+
+.delegation-status.completed {
+  background: rgba(80, 200, 140, 0.16);
+  color: #7fd8a8;
+}
+
+.delegation-status.failed,
+.delegation-status.interrupted {
+  background: rgba(240, 100, 100, 0.16);
+  color: #ff9a9a;
+}
+
+.delegation-status.cancelled {
+  background: rgba(200, 200, 200, 0.12);
+  color: #b8b8b8;
+}
+
+.delegation-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delegation-progress {
+  flex: none;
+  font-size: 11px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.delegation-body {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 0 9px 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.delegation-task {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  opacity: 0.85;
+}
+
+.delegation-goal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.delegation-goal .k {
+  opacity: 0.6;
+}
+
+.delegation-goal-status {
+  padding: 0 5px;
+  border-radius: 7px;
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.delegation-goal-status.completed {
+  background: rgba(80, 200, 140, 0.16);
+  color: #7fd8a8;
+}
+
+.delegation-goal-status.paused {
+  background: rgba(230, 190, 90, 0.16);
+  color: #e6c47a;
+}
+
+.delegation-tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.delegation-task-row {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  opacity: 0.9;
+}
+
+.delegation-task-row.completed {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.delegation-task-status {
+  flex: none;
+  width: 12px;
+  text-align: center;
+  opacity: 0.8;
+}
+
+.delegation-result summary {
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.delegation-result pre {
+  margin: 6px 0 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 7px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.delegation-error {
+  color: #ff9a9a;
+}
+
+.delegation-meta {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.delegation-meta code {
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.delegation-team {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.delegation-revision {
+  margin-left: 6px;
+  font-size: 11px;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.delegation-team-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.delegation-team-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.delegation-team-row.completed .delegation-team-subject {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.delegation-team-subject {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delegation-team-owner {
+  flex: none;
+  font-size: 10.5px;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.07);
+  opacity: 0.8;
+}
+
+/* 点开它的对话：要像个"会导航"的东西，不是普通文字按钮 */
+.delegation-open {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.delegation-panel .grow {
+  flex: 1 1 auto;
+}
+
+
+/* ⑨ 同上：委托看板里的任务描述 / 目标说明 / 结论都是内嵌 Markdown，收紧间距 */
+.delegation-task .md > :first-child,
+.delegation-goal-summary .md > :first-child,
+.delegation-task-text .md > :first-child,
+.delegation-result-body .md > :first-child,
+.delegation-team-subject .md > :first-child { margin-top: 0; }
+.delegation-task .md > :last-child,
+.delegation-goal-summary .md > :last-child,
+.delegation-task-text .md > :last-child,
+.delegation-result-body .md > :last-child,
+.delegation-team-subject .md > :last-child { margin-bottom: 0; }
+.delegation-task .md p,
+.delegation-task-text .md p,
+.delegation-team-subject .md p { display: inline; margin: 0; }
+.delegation-result-body .md p { margin: 4px 0; }
