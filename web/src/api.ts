@@ -218,6 +218,12 @@ export type MessageDto = {
   content: string | null;
   reasoning: string | null;
   toolCalls: ToolCallDto[] | null;
+  /**
+   * 工具消息对应的调用 id（`role === 'tool'` 时有值）。
+   * ★ 后端一直在返回它，只是这个类型没跟上 —— 结果前端只能把「调用」和「输出」
+   *   当成两条互不相干的消息分别渲染。有了它才能合成**一行**：展开看到输入与输出。
+   */
+  toolCallId?: string | null;
   usage: { input: number; output: number; cached?: number } | null;
   finishReason: string | null;
   createdAt: string;

@@ -108,13 +108,6 @@ const KIND_COLOR: Record<string, string> = {
   step_end: 'var(--line-2)',
 };
 
-function roleLabel(role: MessageDto['role']): string {
-  if (role === 'user') return '你';
-  if (role === 'assistant') return '瑶光';
-  if (role === 'tool') return '工具输出';
-  return '系统';
-}
-
 function relTime(iso: string): string {
   const at = Date.parse(iso);
   if (!Number.isFinite(at)) return '';
@@ -167,30 +160,61 @@ function Fold(props: {
   );
 }
 
-/** 工具调用行：名字 + 一行参数，点开看完整 JSON */
-function ToolCallRow(props: { name: string; args: string }): React.ReactElement {
+/**
+ * 工具调用 = **一行**（DSH 的形式）：`工具调用 · read · {"path":"…"}`。
+ * 展开后是**输入 / 输出两段** —— 因为调用与它的结果本来是同一件事，
+ * 拆成两条消息就是用户说的「一条工具输出也算一条消息」。
+ */
+function ToolCallRow(props: { name: string; args: string; output?: string }): React.ReactElement {
   const [open, setOpen] = useState(false);
   const oneLine = useMemo(() => {
     const flat = props.args.replace(/\s+/g, ' ').trim();
-    return flat.length > 120 ? `${flat.slice(0, 120)}…` : flat;
+    return flat.length > 110 ? `${flat.slice(0, 110)}…` : flat;
   }, [props.args]);
 
+  /** JSON 参数尽量展开成缩进形式；不是 JSON 就原样给（工具参数不一定都是 JSON） */
+  const pretty = (raw: string): string => {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return raw;
+    }
+  };
+
   return (
-    <div>
+    <div className="tool-call">
       <button
         type="button"
         className="tool-row"
         style={{ width: '100%', textAlign: 'left' }}
         onClick={() => setOpen((current) => !current)}
-        title="展开参数"
+        title={open ? '收起' : '展开输入与输出'}
+        aria-expanded={open}
       >
+        <span className="tri">
+          <IconChevron size={10} />
+        </span>
+        <span className="lbl">工具调用</span>
         <span className="ico">
-          <IconTerminal size={13} />
+          <IconTerminal size={12} />
         </span>
         <span className="name">{props.name}</span>
         <span className="args">{oneLine}</span>
+        {props.output !== undefined && <span className="len">{props.output.length} 字</span>}
       </button>
-      {open && <div className="fold-body mono">{props.args}</div>}
+      {open && (
+        <div className="tool-io">
+          <div className="tool-io-label">输入</div>
+          <pre className="tool-io-body">{pretty(props.args)}</pre>
+          {props.output !== undefined && (
+            <>
+              <div className="tool-io-label">输出</div>
+              <pre className="tool-io-body">{props.output}</pre>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -204,104 +228,147 @@ function isChatMessage(message: MessageDto): boolean {
     (message.content ?? '').trim().length === 0);
 }
 
-function MessageView(props: {
-  message: MessageDto;
+/**
+ * ⑦ 一轮对话 = 一个「正文块」。
+ *
+ * ★ 用户的原话（2026-11-10）：「为什么你这个一条工具输出或者一次请求就算一条消息，
+ *   你不觉得很诡异吗？你就不能按照 dsh 的这个正文形式来去排版吗？」
+ * ★ 旧结构：**每条消息一个 `<article class="msg …">`** —— 于是「思考」「工具调用」
+ *   「工具输出」「续写」各自是一块，各自带一份间距与（assistant 的）角色行。
+ *   一轮里工具调用十几次，屏幕上就是十几块等高方块，**正文被切成碎片**，翻起来像日志。
+ * ★ DSH 的形式：**一轮只出一个正文块**，正文连续阅读；思考 / 调用 / 工具输出退化成
+ *   这块**内部**可折叠的小行，各自只占一行。
+ * ★ 所以这里按「user 之后、下一个 user 之前」分组，**组内不再有块级间距**。
+ */
+type Turn = {
+  readonly key: string;
+  readonly user: MessageDto | null;
+  readonly parts: readonly MessageDto[];
+};
+
+function groupTurns(messages: readonly MessageDto[]): Turn[] {
+  const turns: Turn[] = [];
+  for (const message of messages) {
+    if (message.role === 'user') {
+      turns.push({ key: message.id, user: message, parts: [] });
+      continue;
+    }
+    const last = turns[turns.length - 1];
+    if (last === undefined) {
+      // 文件开头不是 user（例如只有系统消息）：也要有自己的块，不能丢
+      turns.push({ key: `head-${message.id}`, user: null, parts: [message] });
+      continue;
+    }
+    (last.parts as MessageDto[]).push(message);
+  }
+  return turns;
+}
+
+/** 工具输出：**一行**可折叠（点开才是正文）—— 与「思考」同款，不再占两行 */
+function ToolOutputRow(props: { body: string }): React.ReactElement {
+  return (
+    <Fold
+      label={
+        <>
+          <IconTerminal size={12} />
+          工具输出 · {props.body.length} 字
+        </>
+      }
+      mono
+    >
+      <div className="tool-out">{props.body}</div>
+    </Fold>
+  );
+}
+
+function TurnView(props: {
+  turn: Turn;
   onBranch: (seq: number) => void;
   busy: boolean;
-}): React.ReactElement | null {
-  const { message } = props;
-  if (!isChatMessage(message)) return null;
-  const chatCalls = message.toolCalls?.filter((call) => call.displayChannel !== 'maintenance') ?? [];
+}): React.ReactElement {
+  const { turn } = props;
+  /** 一轮的用量挂在**最后一条有 usage 的 assistant** 上，显示在块末，不当独立消息 */
+  const usageSource = [...turn.parts].reverse().find((part) => part.usage !== null) ?? null;
 
-  // 操作条只给「有正文的对话消息」—— 工具输出和系统消息没有"分支"的意义
-  const actions =
-    message.role === 'user' || message.role === 'assistant' ? (
-      <MessageActions
-        content={message.content ?? ''}
-        seq={message.seq}
-        role={message.role}
-        onBranch={props.onBranch}
-        disabled={props.busy}
-      />
-    ) : null;
-
-  if (message.role === 'user') {
-    return (
-      <article className="msg user">
-        <div className="bubble">{message.content ?? '（空消息）'}</div>
-        <div className="stamp">
-          {clockTime(message.createdAt)}
-          {actions}
-        </div>
-      </article>
-    );
+  /**
+   * ★ 把工具消息按 `toolCallId` 收回它那次调用里 —— 同一件事只出一行。
+   * 收不回去的（找不到对应调用）留作孤儿行，**不丢**：宁可多一行，也不能让输出凭空消失。
+   */
+  const outputs = new Map<string, string>();
+  for (const part of turn.parts) {
+    if (part.role === 'tool' && typeof part.toolCallId === 'string' && part.toolCallId.length > 0) {
+      outputs.set(part.toolCallId, part.content ?? '');
+    }
   }
-
-  if (message.role === 'tool') {
-    const body = message.content ?? '（空输出）';
-    /**
-     * ★ 工具输出压成**一行**（和「思考」同款）：原来头上挂一行「工具输出 seq N」，
-     *   下面再挂一行「输出 · 232 字」，两条都是折叠头 —— 一次工具调用就吃掉两行，
-     *   一轮里工具多的时候整屏全是这两种行，正文反而看不见。
-     *   现在合并成一行：`▸ 工具输出 · 232 字`，点开才展开内容。
-     */
-    return (
-      <article className="msg tool">
-        <Fold
-          label={
-            <>
-              <IconTerminal size={12} />
-              工具输出 · {body.length} 字
-            </>
-          }
-          mono
-        >
-          <div className="tool-out">{body}</div>
-        </Fold>
-      </article>
-    );
-  }
-
-  if (message.role === 'system') {
-    return (
-      <article className="msg system">
-        <div className="who">{roleLabel(message.role)}</div>
-        <div className="body">{message.content ?? ''}</div>
-      </article>
-    );
+  const claimed = new Set<string>();
+  for (const part of turn.parts) {
+    for (const call of part.toolCalls ?? []) {
+      if (outputs.has(call.id)) claimed.add(call.id);
+    }
   }
 
   return (
-    <article className="msg assistant">
-      <div className="who">
-        <span className="mark">
-          <IconStar size={13} />
-        </span>
-        瑶光
-      </div>
-
-      {message.reasoning !== null && message.reasoning.length > 0 && (
-        <Fold label={`思考 · ${message.reasoning.length} 字`} mono>
-          {message.reasoning}
-        </Fold>
-      )}
-
-      {message.content !== null && message.content.length > 0 && <Markdown text={message.content} />}
-
-      {chatCalls.map((call) => (
-        <ToolCallRow key={call.id} name={call.name} args={call.arguments} />
-      ))}
-
-      {message.usage !== null && (
-        <div className="usage">
-          tokens {compactNumber(message.usage.input)} → {compactNumber(message.usage.output)}
-          {message.usage.cached !== undefined ? ` · 缓存 ${compactNumber(message.usage.cached)}` : ''}
-          {message.finishReason !== null ? ` · ${message.finishReason}` : ''}
+    <section className="turn">
+      {turn.user !== null && (
+        <div className="turn-user">
+          <div className="bubble">{turn.user.content ?? '（空消息）'}</div>
+          <div className="stamp">
+            {clockTime(turn.user.createdAt)}
+            <MessageActions
+              content={turn.user.content ?? ''}
+              seq={turn.user.seq}
+              role="user"
+              onBranch={props.onBranch}
+              disabled={props.busy}
+            />
+          </div>
         </div>
       )}
 
-      {actions}
-    </article>
+      <div className="turn-body">
+        {turn.parts.map((part) => {
+          if (part.role === 'tool') {
+            // 已被某次调用认领的输出由那一行显示输入+输出；这里只渲染孤儿
+            if (typeof part.toolCallId === 'string' && claimed.has(part.toolCallId)) return null;
+            return <ToolOutputRow key={part.id} body={part.content ?? '（空输出）'} />;
+          }
+          if (part.role === 'system') {
+            return (
+              <p className="turn-system" key={part.id}>
+                {part.content ?? ''}
+              </p>
+            );
+          }
+          const calls = part.toolCalls?.filter((call) => call.displayChannel !== 'maintenance') ?? [];
+          return (
+            <div className="turn-part" key={part.id}>
+              {part.reasoning !== null && part.reasoning.length > 0 && (
+                <Fold label={`思考 · ${part.reasoning.length} 字`} mono>
+                  {part.reasoning}
+                </Fold>
+              )}
+              {part.content !== null && part.content.length > 0 && <Markdown text={part.content} />}
+              {calls.map((call) => (
+                <ToolCallRow
+                  key={call.id}
+                  name={call.name}
+                  args={call.arguments}
+                  {...(outputs.has(call.id) ? { output: outputs.get(call.id) as string } : {})}
+                />
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      {usageSource !== null && usageSource.usage !== null && (
+        <div className="usage turn-usage">
+          tokens {compactNumber(usageSource.usage.input)} → {compactNumber(usageSource.usage.output)}
+          {usageSource.usage.cached !== undefined ? ` · 缓存 ${compactNumber(usageSource.usage.cached)}` : ''}
+          {usageSource.finishReason !== null ? ` · ${usageSource.finishReason}` : ''}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -1646,50 +1713,42 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
                 </div>
               ) : (
                 <div className="thread-inner">
-                  {chatMessages.map((message) => (
-                    <MessageView
-                      key={message.id}
-                      message={message}
+                  {groupTurns(chatMessages).map((turn) => (
+                    <TurnView
+                      key={turn.key}
+                      turn={turn}
                       onBranch={(seq) => void handleBranch(seq)}
                       busy={busy}
                     />
                   ))}
 
                   {streamReasoning.length > 0 && (
-                    <article className="msg assistant">
-                      <div className="who">
-                        <span className="mark">
-                          <IconStar size={13} />
-                        </span>
-                        瑶光
+                    <section className="turn streaming-turn">
+                      <div className="turn-body">
+                        <Fold label="正在思考…" mono defaultOpen>
+                          {streamReasoning}
+                        </Fold>
                       </div>
-                      <Fold label="正在思考…" mono defaultOpen>
-                        {streamReasoning}
-                      </Fold>
-                    </article>
+                    </section>
                   )}
 
                   {(streamText.length > 0 || busy) && (
-                    <article className="msg assistant">
-                      <div className="who">
-                        <span className="mark">
-                          <IconStar size={13} />
-                        </span>
-                        瑶光
+                    <section className="turn streaming-turn">
+                      <div className="turn-body">
+                        {streamText.length > 0 ? (
+                          <Markdown text={streamText} />
+                        ) : (
+                          <div className="streaming">
+                            <span className="dots">
+                              <i />
+                              <i />
+                              <i />
+                            </span>
+                            正在处理
+                          </div>
+                        )}
                       </div>
-                      {streamText.length > 0 ? (
-                        <Markdown text={streamText} />
-                      ) : (
-                        <div className="streaming">
-                          <span className="dots">
-                            <i />
-                            <i />
-                            <i />
-                          </span>
-                          正在处理
-                        </div>
-                      )}
-                    </article>
+                    </section>
                   )}
                   <div ref={bottomRef} />
                 </div>
