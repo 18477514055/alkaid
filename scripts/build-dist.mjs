@@ -25,7 +25,18 @@ const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 function run(command, args, cwd) {
   console.log(`\n$ ${command} ${args.join(' ')}  (${cwd})`);
-  execFileSync(command, args, { cwd, stdio: 'inherit', env: { ...process.env, ELECTRON_RUN_AS_NODE: '' } });
+  /**
+   * ★ Node ≥ 22 在 Windows 上**不允许直接 spawn `.cmd`**（会抛 `EINVAL`），
+   *   必须过一次 shell。所以只有 `.cmd`/`.bat` 才开 `shell`，其余照旧 ——
+   *   全程开 shell 会让带空格的参数被重新拆词，反而更脆。
+   */
+  const needsShell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(command);
+  execFileSync(command, args, {
+    cwd,
+    shell: needsShell,
+    stdio: 'inherit',
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '' },
+  });
 }
 
 // ① 前端产物
@@ -59,11 +70,22 @@ if (existsSync(koffiDir)) {
 void koffiBinary;
 
 // ⑤ 打包
-const packager = join(ROOT, 'node_modules', '@electron', 'packager', 'bin', 'electron-packager.js');
+/**
+ * ★ 入口文件名会随 `@electron/packager` 版本变（旧版 `bin/electron-packager.js`，
+ *   新版 `bin/electron-packager.mjs`）—— 写死其中一个，升级依赖后就会
+ *   `ERR_MODULE_NOT_FOUND`，而且报错只说找不到模块、不像"路径写错了"。
+ *   所以这里**探测**：优先 mjs，其次 js。
+ */
+const packagerBin = ['bin/electron-packager.mjs', 'bin/electron-packager.js']
+  .map((rel) => join(ROOT, 'node_modules', '@electron', 'packager', rel))
+  .find((candidate) => existsSync(candidate));
+if (packagerBin === undefined) {
+  throw new Error('找不到 @electron/packager 的入口（先 pnpm install）');
+}
 run(
   process.execPath,
   [
-    packager,
+    packagerBin,
     STAGE,
     APP_NAME,
     '--platform=win32',
