@@ -121,7 +121,7 @@ try {
   const keepText = '逐字keep：不可覆盖他人进展。\n下一轮必须知道本项目只在本地存储。';
   await artifact('triage', { keep: [{ what: keepText, why: '下一轮不可丢' }], stash: [{ what: 'stash_unique_probe_材料细节', where: 'docs/任务单-记忆模块还缺什么.md' }], drop: [{ what: '旧的全局缓冲方案', why: '会破坏流式输出' }] });
   const triage = await request(`${prefix}/triage?q=stash_unique_probe`); assert.equal(triage.stash.length, 1); assert.ok(projectMemoryBlock(db, a.id)?.includes(keepText)); assert.ok(!projectMemoryBlock(db, a.id)?.includes('stash_unique_probe')); checks.triage = true;
-  const handoff = { title: '正式使用前交接', did: '归档与目标树、结构教训机制已完成隔离验收。', state: '当前工作台可读；真实模型与旧资料未接入。', next: '选择真实维护模型并复核后，再确认旧资料导入。', files: ['D:/Deepseek工作区/99-Alkaid/docs/任务单-记忆模块还缺什么.md'], blocked: '等待用户选择与确认，不擅自付费。' };
+  const handoff = { title: '正式使用前交接', did: '归档与目标树、结构教训机制已完成隔离验收。', state: '当前工作台可读；真实模型与旧资料未接入。', next: '选择真实维护模型并复核后，再确认旧资料导入。', files: [join(process.cwd(), 'docs', '任务单-记忆模块还缺什么.md')], blocked: '等待用户选择与确认，不擅自付费。' };
   await artifact('handoff', handoff); await artifact('handoff', handoff);
   const bench = await request(`${prefix}/workbench`); assert.equal(bench.handoffs.length, 2);
   const materialized1 = await request(`${prefix}/handoffs/${bench.handoffs[0].id}/materialize`, 'POST', {});
