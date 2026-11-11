@@ -2,6 +2,8 @@ import { type ReactElement } from 'react';
 
 import type { DashboardDto, UsageDetailDto } from './api.ts';
 import { IconX } from './icons.tsx';
+/** ★ 档位唯一真源（2026-11-11 审计 `MEDIUM-06`）：这里原来硬编码第 4 份副本，缺 500k 档 */
+import { WINDOW_PRESETS } from './windowPresets.ts';
 
 /**
  * 底部「用量 / 上下文」内嵌抽屉。
@@ -33,8 +35,6 @@ export type UsageDockProps = {
 };
 
 /** 常用窗口档位（与 ModelPicker 的档位一致，两处别各写一套不同的数字） */
-const WINDOW_PRESETS: readonly number[] = [32_000, 64_000, 128_000, 200_000, 1_000_000];
-
 function clockTime(iso: string): string {
   const at = Date.parse(iso);
   if (!Number.isFinite(at)) return '';

@@ -28,6 +28,17 @@ export type RecordStepInput = {
   readonly payload?: Record<string, unknown>;
 };
 
+/**
+ * 保留上限（审计 `ALK-P3-⑦`）。
+ *
+ * 这张表**每步插一条**，而且此前**从不删除**：用得越久库越大，备份/同步/迁移全都变慢。
+ * 它只是诊断用的流水，不是证据链（真正的历史在消息表与胶囊里），所以可以裁剪。
+ *
+ * 取 20 万行：按"一轮 40 步、每天 50 轮"估算约等于**三个多月**的可查窗口，
+ * 远超实际排查需要，同时把库的大小钉在一个可预期的量级。
+ */
+export const STEP_EVENT_RETENTION = 200_000;
+
 export function recordStepEvent(db: DatabaseSync, input: RecordStepInput): void {
   db.prepare(
     'INSERT INTO step_events (conversation_id, step_no, kind, payload, created_at) VALUES (?, ?, ?, ?, ?)',
@@ -38,6 +49,22 @@ export function recordStepEvent(db: DatabaseSync, input: RecordStepInput): void 
     input.payload === undefined ? null : JSON.stringify(input.payload),
     new Date().toISOString(),
   );
+}
+
+/**
+ * 把超出保留上限的旧事件裁掉（审计 `ALK-P3-⑦`）。
+ *
+ * 判据：按 `id` 保留最新的 `STEP_EVENT_RETENTION` 条，更早的删掉。
+ * ★ 为什么按 id 不按时间：id 是单调递增的插入序，不受时钟回拨影响；
+ *   而且它天然与"最近用过什么"的查询口径一致。
+ * ★ 刻意**不**做成定时器：每次启动跑一次 + 每 N 次插入跑一次就够，
+ *   高频裁剪会白白吃 IO（写放大比省下的空间更贵）。
+ */
+export function pruneStepEvents(db: DatabaseSync, keep: number = STEP_EVENT_RETENTION): number {
+  const result = db
+    .prepare('DELETE FROM step_events WHERE id <= (SELECT MAX(id) - ? FROM step_events)')
+    .run(keep);
+  return Number(result.changes ?? 0);
 }
 
 export function listStepEvents(db: DatabaseSync, conversationId: string, limit = 200): StepEvent[] {

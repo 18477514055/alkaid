@@ -19,7 +19,7 @@ test('看板接口把上下文、压缩档案、审计、项目/工作区一次�
   ensureHome(config);
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 
   try {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://x/v1' });
@@ -66,7 +66,7 @@ test('不存在的会话看板返回 404', async () => {
   ensureHome(config);
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
   try {
     const res = await app.inject({ method: 'GET', url: '/api/conversations/nope/dashboard' });
     assert.equal(res.statusCode, 404);

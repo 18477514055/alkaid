@@ -29,7 +29,7 @@ async function healthz(
   const config = { ...loadConfig({ ALKAID_HOME: home } as NodeJS.ProcessEnv), host, trustedHosts };
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
   try {
     const res = await app.inject({ method: 'GET', url: '/api/healthz', headers: { host: '127.0.0.1' } });
     assert.equal(res.statusCode, 200);

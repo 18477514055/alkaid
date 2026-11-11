@@ -105,11 +105,19 @@ const STEPS = [
  */
 const RELEASE_STEPS = [
   {
-    // Never replay historical v7/v10/v11/v12 deployment scripts on a newer release.
-    // --release validates the current v16 -> v17 path in an isolated home only.
-    // Actual publication requires the separate explicit --publish command.
-    name: '发布验收：v16→v17（真二进制、隔离家，不改打包文件）',
-    args: ['scripts/verify-release-v17.mjs'],
+    /**
+     * ★ 2026-11-11（审计 `LOW-02`）改成**版本无关**的冒烟。
+     *
+     * 原来这里挂的是 `verify-release-v17.mjs`，它把 `schema = 16/17` 写死在断言里：
+     * 项目升到 v18/v19 之后，`--release` 必然红，而红的原因与"打包版坏了"**毫无关系** ——
+     * 只是那条发布路径是历史快照。
+     *
+     * 现在挂 `verify-packaged-smoke.ts`：它从源码 `SCHEMA_VERSION` 推导期望值，
+     * 只断言"打包版与源码同一版本 + 新端点可用"，任何版本都能跑。
+     * 历史 v16→v17 的四段式发布脚本**保留但不再自动执行**（那是某一次发布的历史证据）。
+     */
+    name: '发布冒烟：真二进制 + 隔离家（schema 与源码一致）',
+    args: ['scripts/verify-packaged-smoke.ts'],
     timeoutMs: 900_000,
   },
 ];

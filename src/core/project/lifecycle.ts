@@ -64,6 +64,22 @@ function purgeProjectRows(db: DatabaseSync, projectId: string): readonly string[
   const retained: string[] = [];
   for (const table of tables) {
     if (!hasProjectIdColumn(db, table)) continue;
+    /**
+     * ★★ `conversations` **必须排除**（2026-11-11 审计 `CRITICAL-03`，数据毁灭级）。
+     *
+     * 这张表有 `project_id` 列，且**没有** BEFORE DELETE 触发器，于是原来那句
+     * `DELETE FROM <table> WHERE project_id = ?` 会把它整片删掉 ——
+     * 连带 `messages` / `step_events` / `compactions` 全部级联消失。
+     * 症状：用户右键项目→删除（**即使没勾"删文件"**），该项目下所有对话历史**永久蒸发**；
+     * 而如果这些对话派过子代理，外键级联到 `delegations` 又会撞上只追加触发器，直接 500。
+     *
+     * 设计意图（本文件下面那段注释也写着）：对话与项目是**解耦**的 ——
+     * 删项目只应让对话**降级成"无项目会话"**，历史一条不少。
+     */
+    if (table === 'conversations') {
+      db.prepare('UPDATE conversations SET project_id = NULL WHERE project_id = ?').run(projectId);
+      continue;
+    }
     if (hasDeleteTrigger(db, table)) {
       retained.push(table);
       continue;

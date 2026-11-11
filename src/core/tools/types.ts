@@ -288,9 +288,41 @@ export type ToolOutcome =
 
 // ─────────────────────────────── 注册表 ───────────────────────────────
 
-/** Only trusted built-ins: never infer a plugin's authority from display routing. */
-export function isProjectMemoryTool(tool: ResolvedTool): boolean {
-  return tool.source === 'builtin' && (tool.name.startsWith('memory_') || tool.name === 'execution_board');
+/**
+ * 子代理**绝对不许**碰的项目记忆**写**工具。
+ *
+ * ★ 2026-11-11 审计（`CRITICAL-01`）修的就是这里：原来这个判据叫 `isProjectMemoryTool`，
+ *   把 `memory_*` **整族**连同 `execution_board` 一起挡在子代理外面。可用户 2026-11-10 的裁定是
+ *   「子代理可以只读所有东西，不能改除了自己的看板之外的任何东西」——
+ *   ⇒ **读**工具（`memory_read` / `memory_query`）与**自己的看板**（`execution_board`）
+ *   本来就该给子代理。挡住它们导致：子代理看不见 `execution_board`，于是主对话右侧委派看板里
+ *   每个子代理的「目标与任务」永远是空的。
+ *
+ * 判据按**动作**分，不按名字前缀分：
+ * - 写台账（提案 / 制品暂存 / 无新增声明）⇒ 子代理禁用（只读准则）
+ * - 读（`memory_read` / `memory_query`）⇒ 放行
+ * - `execution_board` ⇒ 放行（它自己那一行；工具参数里根本没有 conversationId，写不到别人的板）
+ */
+export function isSubagentForbiddenMemoryTool(tool: ResolvedTool): boolean {
+  if (tool.source !== 'builtin') return false;
+  /**
+   * ★ 这份名单只放**写**语义的工具。逐个确认过（不是按前缀猜）：
+   * - `memory_propose`：正式台账提案
+   * - `memory_stage`：制品/材料暂存（`memory-workbench.ts` 里唯一标 `write = true` 的）
+   * - `memory_disposition`：无新增/丢弃声明
+   *
+   * ★★ 2026-11-11 审计 `ALK-HIGH-03` 打回的正是这里：上一版顺手把 `memory_checkpoint`
+   *   与 `memory_workbench` 也塞进了封禁名单，可它们**都是只读**——
+   *   `memory_checkpoint` 只是"请用户选一下检查点"（不写库），
+   *   `memory_workbench` 是"读已审核分流三桶/交接单/意图日志"。
+   *   封掉它们 = 子代理连自己这一轮的交接单都读不到，而用户的裁定是"子代理可以只读所有东西"。
+   *   ⇒ 判据只能是**工具自己声明的写语义**，不是我按名字感觉。
+   */
+  return (
+    tool.name === 'memory_propose' ||
+    tool.name === 'memory_stage' ||
+    tool.name === 'memory_disposition'
+  );
 }
 
 export class ToolRegistry {
@@ -379,7 +411,7 @@ export class ToolRegistry {
    */
   async execute(name: string, rawArgs: unknown, ctx: ToolContext): Promise<ToolOutcome> {
     const tool = this.#tools.get(name);
-    if (ctx.agentRole === 'subagent' && tool && isProjectMemoryTool(tool)) return {
+    if (ctx.agentRole === 'subagent' && tool && isSubagentForbiddenMemoryTool(tool)) return {
       ok: false, code: 'tool_not_found', message: '子智能体不参与项目台账；请将工作结果返回主对话。',
     };
     if (tool === undefined || !tool.definition.modes.includes(ctx.permissionMode)) {

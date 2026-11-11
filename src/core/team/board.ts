@@ -331,6 +331,35 @@ export function createTasks(
   });
 }
 
+/**
+ * 改依赖时查环：把**整块板**读成图，用本次补丁替换掉 `taskId` 的边，然后从它出发 DFS。
+ *
+ * ★ 只从一个点出发就够：环一定经过被改的那张卡（别的边没动过，原来就没环）。
+ * ★ 代价是「读这一块板的所有卡」，与认领时读板同量级，可以接受。
+ */
+function assertNoCycleWithOverride(
+  db: DatabaseSync,
+  rootConversationId: string,
+  taskId: string,
+  blockedBy: readonly string[],
+): void {
+  const rows = db.prepare('SELECT id, blocked_by FROM team_tasks WHERE root_conversation_id = ?')
+    .all(rootConversationId) as { id: string; blocked_by: string }[];
+  const graph = new Map<string, readonly string[]>();
+  for (const row of rows) graph.set(row.id, parseList(row.blocked_by));
+  graph.set(taskId, blockedBy);
+
+  const seen = new Set<string>();
+  const stack: string[] = [...(graph.get(taskId) ?? [])];
+  while (stack.length > 0) {
+    const current = stack.pop() as string;
+    if (current === taskId) fail(400, 'Team task dependencies would contain a cycle');
+    if (seen.has(current)) continue;
+    seen.add(current);
+    for (const next of graph.get(current) ?? []) stack.push(next);
+  }
+}
+
 /** 批内依赖成环检测（DFS 三色标记）。只在建卡时跑，成本可忽略。 */
 function assertNoDependencyCycle(items: readonly { id: string; blockedBy: readonly string[] }[]): void {
   const graph = new Map(items.map((item) => [item.id, item.blockedBy]));
@@ -602,6 +631,15 @@ export function updateTask(
       const found = db.prepare('SELECT 1 AS hit FROM team_tasks WHERE id=? AND root_conversation_id=?').get(dependency, rootConversationId);
       if (!found) fail(400, `Team task blocks on unknown task ${dependency} on this board`);
     }
+    /**
+     * ★ 改依赖也要查环（2026-11-11 审计 `MEDIUM-01`）。
+     *
+     * 原来只有 `createTasks` 跑 `assertNoDependencyCycle`，而且只走**批内**的边 ——
+     * 于是「把 A 改成依赖 B，而 B 本来就依赖 A」可以一路写进去，
+     * 结果两张卡互相等，谁也**永远认领不了**（而且界面上完全看不出问题）。
+     * 现在按**整块板 + 本次补丁**建图，只从被改的这张卡出发找环就够。
+     */
+    assertNoCycleWithOverride(db, rootConversationId, taskId, blockedBy);
 
     let status: TeamTaskStatus = before.status;
     let owner = before.owner;

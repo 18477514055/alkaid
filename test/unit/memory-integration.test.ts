@@ -36,7 +36,7 @@ test('a persisted running marker from a stopped process does not lock conversati
   const { db, conversation } = fixture();
   const dir = mkdtempSync(join(tmpdir(), 'alkaid-memory-resume-'));
   db.prepare("UPDATE conversations SET state='running' WHERE id=?").run(conversation.id);
-  const app = buildServer({ db, config: { ...loadConfig(), home: dir, secretsPath: join(dir, 'missing-secrets.json') } });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db, config: { ...loadConfig(), home: dir, secretsPath: join(dir, 'missing-secrets.json') } });
   try {
     const patch = await app.inject({ method: 'PATCH', url: `/api/conversations/${conversation.id}`, payload: { title: 'resumable' } });
     assert.equal(patch.statusCode, 200);
@@ -79,7 +79,7 @@ test('memory tools: execution project comes from conversation, readonly can stag
 test('memory snapshot: only formal current-project records; main loop and prompt viewer use identical source', async () => {
   const { db, conversation } = fixture();
   const dir = mkdtempSync(join(tmpdir(), 'alkaid-memory-inject-'));
-  const app = buildServer({ db, config: { ...loadConfig(), home: dir, secretsPath: join(dir, 'secrets.json') } });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db, config: { ...loadConfig(), home: dir, secretsPath: join(dir, 'secrets.json') } });
   try {
     const p = submitProposal(db, input(conversation.id)); applyProposalManually(db, 'project-a', p.id);
     submitProposal(db, { ...input(conversation.id, 'pending-only'), content: 'UNMERGED_PRIVATE_FACT' });

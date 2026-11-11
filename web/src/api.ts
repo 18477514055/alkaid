@@ -193,6 +193,58 @@ export type ToolListDto = {
   summary: { resident: number; lazy: number; disabled: number; toolTableChars: number };
 };
 
+/** 工具门控里的一行：既有"全局怎么设"，也有"这个会话覆盖成什么" */
+export type ToolGateToolDto = {
+  name: string;
+  displayName: string;
+  oneLiner: string;
+  group: string;
+  kind: string;
+  source: string;
+  /** 归属（服务端算好的）：`mcp:<服务器名>` / `plugin:<插件id>`；内置工具为 null */
+  ownerKey: string | null;
+  ownerLabel: string | null;
+  ownerHint: string | null;
+  available: boolean;
+  /** 全局层的值 */
+  globalMode: ToolModeDto;
+  /** 这个会话有没有覆盖它 */
+  overridden: boolean;
+  /** 这一轮真正生效的值 */
+  mode: ToolModeDto;
+  defaultMode: ToolModeDto;
+  visibleInMode: boolean;
+  sizeChars: number;
+  /** 粗略 token 估计（体积 / 3.5），界面标 ~ */
+  tokens: number;
+  useCount: number;
+  lastUsedAt: string | null;
+};
+
+export type ToolTemplateDto = {
+  id: string;
+  name: string;
+  modes: Record<string, ToolModeDto>;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ToolGateDto = {
+  permissionMode: string;
+  conversationId: string | null;
+  tools: ToolGateToolDto[];
+  templates: ToolTemplateDto[];
+  summary: {
+    total: number;
+    visible: number;
+    overridden: number;
+    residentChars: number;
+    lazyChars: number;
+    disabledChars: number;
+  };
+};
+
 export type ProjectDto = {
   id: string;
   name: string;
@@ -512,9 +564,57 @@ export const api = {
       body: JSON.stringify({ reset: true }),
     }).then(json<{ ok: boolean; name: string; mode: ToolModeDto }>),
 
+  /**
+   * 工具门控（v18）：全局默认 + 会话级工具集 + 模板。
+   * ★ 带 `conversationId` 就是那个会话的视图（含"哪些工具被这个会话覆盖过"）；
+   *   不带就是全局默认那一层。
+   */
+  getToolGate: (options: { mode?: string; conversationId?: string | null } = {}): Promise<ToolGateDto> => {
+    const query = new URLSearchParams();
+    if (options.mode !== undefined) query.set('mode', options.mode);
+    if (options.conversationId !== undefined && options.conversationId !== null) {
+      query.set('conversationId', options.conversationId);
+    }
+    const suffix = query.toString();
+    return fetch(`/api/tool-gate${suffix.length > 0 ? `?${suffix}` : ''}`).then(json<ToolGateDto>);
+  },
+
+  /** 改一个工具的三态（带 conversationId 改会话层，不带改全局） */
+  patchToolGate: (input: {
+    name: string; mode?: ToolModeDto; reset?: boolean; conversationId?: string | null;
+  }): Promise<{ ok: boolean; name: string }> =>
+    fetch('/api/tool-gate', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    }).then(json<{ ok: boolean; name: string }>),
+
+  /** 清空某个会话的全部覆盖（整体回到跟随全局） */
+  resetConversationTools: (conversationId: string): Promise<{ cleared: number }> =>
+    postJson<{ cleared: number }>('/api/tool-gate/reset-conversation', { conversationId }),
+
+  /** 把当前这一套存成模板（带 conversationId 存会话生效值，不带存全局） */
+  createToolTemplate: (input: { name: string; conversationId?: string | null }): Promise<ToolTemplateDto> =>
+    postJson<ToolTemplateDto>('/api/tool-gate/templates', input),
+
+  applyToolTemplate: (id: string, conversationId?: string | null): Promise<{ ok: boolean; changed: number }> =>
+    postJson<{ ok: boolean; changed: number }>(
+      `/api/tool-gate/templates/${encodeURIComponent(id)}/apply`,
+      conversationId === undefined ? {} : { conversationId },
+    ),
+
+  setDefaultToolTemplate: (id: string): Promise<{ ok: boolean }> =>
+    fetch(`/api/tool-gate/templates/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ isDefault: true }),
+    }).then(json<{ ok: boolean }>),
+
+  deleteToolTemplate: (id: string): Promise<{ deleted: boolean }> =>
+    fetch(`/api/tool-gate/templates/${encodeURIComponent(id)}`, { method: 'DELETE' }).then(json<{ deleted: boolean }>),
+
   /** 全部恢复默认 */
-  resetAllTools: (): Promise<{ ok: boolean; cleared: number }> =>
-    fetch('/api/tools/reset', { method: 'POST' }).then(json<{ ok: boolean; cleared: number }>),
+  resetAllTools: (): Promise<{ ok: boolean; cleared: number }> =>    fetch('/api/tools/reset', { method: 'POST' }).then(json<{ ok: boolean; cleared: number }>),
 
   createConversation: (input: {
     providerId: string;

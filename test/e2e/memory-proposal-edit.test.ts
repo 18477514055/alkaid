@@ -35,7 +35,7 @@ function fixture(t: TestContext) {
   const sibling = insertConversation(db, { providerId: provider.id, model: 'fake', projectId: project.id });
   const foreign = insertConversation(db, { providerId: provider.id, model: 'fake', projectId: other.id });
   const memory = new MemoryMaintainer({ db, config });
-  const app = buildServer({ db, config, memory });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db, config, memory });
   t.after(async () => {
     await app.close();
     await memory.close();

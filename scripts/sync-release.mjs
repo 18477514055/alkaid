@@ -1,4 +1,5 @@
 import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 
 /**
@@ -31,6 +32,39 @@ function copyDir(from, to) {
       copyFileSync(src, dst);
     }
   }
+}
+
+/**
+ * ★★ 2026-11-11 审计 `ALK-P3-④`：**桌面端在跑的时候不许同步**。
+ *
+ * 这个脚本会覆盖 `resources/app/` 下的源码与产物。而 `YaoGuang.exe` 正在运行时，
+ * Node 已经把内核源码读进内存 —— 覆盖不会立刻炸，但**下一次重启**会加载"一半新一半旧"的树，
+ * 症状是 import 失败或行为诡异。更直接的是 Windows 会锁住正在执行的文件（EBUSY），
+ * 脚本会停在一半、留下**半同步**的打包版。
+ *
+ * 判据：发现有 `YaoGuang.exe` 就跑都不跑。确实要强制（离线修构建）用 `--force`。
+ */
+function runningInstances() {
+  try {
+    const out = execFileSync('tasklist', ['/FI', 'IMAGENAME eq YaoGuang.exe', '/NH'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return (out.match(/YaoGuang\.exe/gi) ?? []).length;
+  } catch {
+    return 0; // tasklist 不可用（非 Windows）就当没有
+  }
+}
+
+const forced = process.argv.includes('--force');
+const running = runningInstances();
+if (running > 0 && !forced) {
+  console.error(
+    `桌面端正开着（${String(running)} 个 YaoGuang.exe）。请先退出桌面端再同步 ——\n` +
+      '  正在运行时覆盖 resources/app 会留下"一半新一半旧"的打包版，下次启动才会出问题。\n' +
+      '  确实要强制：加 --force（不推荐）。',
+  );
+  process.exit(1);
 }
 
 copyDir(join(ROOT, 'dist/web'), join(APP, 'dist/web'));

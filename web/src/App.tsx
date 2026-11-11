@@ -13,6 +13,7 @@ import { PANEL_TABS, PANEL_TABS_WITHOUT_PROJECT } from '../../src/shared/setting
 import { MessageActions } from './MessageActions.tsx';
 import { SessionMenu } from './SessionMenu.tsx';
 import { ModelPicker } from './ModelPicker.tsx';
+import { ToolGatePanel, ToolGateSummaryButton } from './ToolGatePanel.tsx';
 import { UsageDock } from './UsageDock.tsx';
 import './ui-parts.css';
 import {
@@ -632,6 +633,16 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
   const [workspaces, setWorkspaces] = useState<WorkspaceDto[]>([]);
   const [plugins, setPlugins] = useState<PluginDto[]>([]);
   const [dialog, setDialog] = useState<'project' | 'workspace' | null>(null);
+  /** 本对话的工具集面板（底部「工具集」按钮打开） */
+  const [toolGateOpen, setToolGateOpen] = useState(false);
+  /**
+   * 「打断后重发」的暂存位（`busySendBehavior = 'interrupt'`）。
+   * ★ 用 ref 不用 state：它要在 `runTurnRequest` 的 finally 里被读，
+   *   而那里拿到的是**当次渲染的闭包** —— state 会读到旧值。
+   */
+  const interruptedSendRef = useRef<{ content: string; conversationId: string } | null>(null);
+  /** 底部按钮上的一行小结：「常驻 12 · 按需 3 · 关 5」 */
+  const [toolGateSummary, setToolGateSummary] = useState('工具集');
   const [dialogName, setDialogName] = useState('');
   const [dialogPath, setDialogPath] = useState('');
   const [dashboard, setDashboard] = useState<DashboardDto | null>(null);
@@ -668,6 +679,13 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  /**
+   * 「当前真正选中的会话」的**实时**镜像（审计 `ALK-MED-03`）。
+   * 流式回调拿到的 `activeId` 是那一帧的闭包值，切会话后它不会变；
+   * 要判断"用户还在不在这个会话上"，只能读 ref。
+   */
+  const activeIdRef = useRef<string | null>(null);
+  activeIdRef.current = activeId;
 
   const activeConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === activeId) ?? null,
@@ -1086,15 +1104,29 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
       // ★ 建完再把「默认思考强度 / 默认上下文窗口」落到这个新会话上 ——
       //   这两个字段 createConversation 不接，只能建完再 PATCH。
       //   失败不报错：会话已经建好了，偏好没写上不该让它看起来像失败。
+      /**
+       * ★ 只把「默认思考强度」落到这个新会话上。
+       *
+       * ★★ 这里**不再** `patchProviderContextWindow(provider.id, general.defaultContextWindow)`
+       *   （2026-11-11 审计 `MEDIUM-03`）：上下文窗口是**连接**的属性，
+       *   而这条调用会在每次新建对话时把用户在连接设置里手调的窗口**覆盖回全局默认** ——
+       *   一个对话的创建去改所有对话共用的连接，这是真实的污染，
+       *   症状是"我明明给这个连接设了 500k，新建个对话就变回 128k"。
+       *   全局默认只在**新建连接**时作为初始值使用（见 `SetupDialog`）。
+       */
       if (general.defaultThinkingEffort !== 'default') {
+        /**
+         * ★ 2026-11-11 审计 P3-⑤：PATCH 完之后要**把本地会话列表里的那一行也更新**，
+         *   否则这一帧的 `activeConversation` 还是旧值 —— 用户看到"思考强度"仍是默认，
+         *   明明库里已经改了（刷新才对）。乐观更新 + 失败回滚由 `refreshConversations` 兜底。
+         */
+        setConversations((current) => current.map((item) => (
+          item.id === conversation.id ? { ...item, thinkingEffort: general.defaultThinkingEffort } : item
+        )));
         void api
           .patchConversation(conversation.id, { thinkingEffort: general.defaultThinkingEffort })
           .catch(() => undefined);
       }
-      void api
-        .patchProviderContextWindow(provider.id, general.defaultContextWindow)
-        .then(() => refreshProviders())
-        .catch(() => undefined);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -1218,6 +1250,26 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
     return groups;
   }, [providers, models, activeProvider]);
 
+  /**
+   * 底部「工具集」按钮的小结。
+   * ★ 只在这个对话里拉一次（面板保存后也重拉）：它是**这一轮真正会发出去的东西**的写照，
+   *   不显示就没人知道"我关掉的组到底省了多少"。
+   */
+  useEffect(() => {
+    if (activeId === null) { setToolGateSummary('工具集'); return; }
+    let cancelled = false;
+    void api.getToolGate({ conversationId: activeId })
+      .then((gate) => {
+        if (cancelled) return;
+        const count = (mode: 'resident' | 'lazy' | 'disabled'): number =>
+          gate.tools.filter((tool) => tool.visibleInMode && tool.mode === mode).length;
+        const off = gate.tools.filter((tool) => tool.visibleInMode && tool.mode === 'disabled').length;
+        setToolGateSummary(`工具集 ${String(count('resident'))}/${String(count('lazy'))}/${String(off)}`);
+      })
+      .catch(() => { if (!cancelled) setToolGateSummary('工具集'); });
+    return () => { cancelled = true; };
+  }, [activeId, toolGateOpen]);
+
   const handlePickModel = (model: string, providerId?: string): void => {
     /**
      * 只有**真的换了连接**才带 providerId：同连接内换模型时多传一个字段，
@@ -1278,6 +1330,28 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
   const handleSend = async (): Promise<void> => {
     const content = draft.trim();
     if (content.length === 0 || activeId === null || busy) return;
+    await runTurnRequest(content);
+  };
+
+  /**
+   * 真正把一条消息发出去（`handleSend` 与"打断后重发"共用）。
+   *
+   * ★ 抽出来是为了让 `busySendBehavior = 'interrupt'` 能落地：
+   *   那条路要先中止当前轮、等它收尾，再把内容作为**新的一轮**发出去 ——
+   *   不能复用 `handleSend`，因为它在 `busy` 为真时会直接 return。
+   */
+  const runTurnRequest = async (content: string): Promise<void> => {
+    if (content.length === 0 || activeId === null) return;
+    /**
+     * ★★ 2026-11-11 审计 `ALK-MED-03`：把**发起这一轮的会话**钉住。
+     *
+     * 流式回调是异步来的，而 `activeId` 是渲染时的闭包。用户在输出期间切到另一个会话时，
+     * 这些 `setMessages` / `setStreamText` 会把**旧会话的正文写到新会话的视图里**
+     * （刷新后又消失 —— 因为库里根本没写错），而 `interruptedSendRef` 也会把"打断后重发"
+     * 发到用户已经切走的那个会话上。判据：每次写 UI 之前先看**当前选中的**还是不是它。
+     */
+    const targetId = activeId;
+    const stillHere = (): boolean => activeIdRef.current === targetId;
 
     setDraft('');
     setBusy(true);
@@ -1287,6 +1361,8 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
 
     try {
       await sendMessage(activeId, content, (event) => {
+        // ★ 用户已经切走 ⇒ 不再往当前视图里写（数据仍在库里，切回去从历史读得到）
+        if (!stillHere()) return;
         if (event.type === 'user') {
           setMessages((current) => [...current, event.message]);
         } else if (event.type === 'reasoning') {
@@ -1314,6 +1390,23 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
       void refreshDashboard();
       // ★ 这一轮结束后顺手让模型起个名（只在标题还是占位时才真的调，判定在后端）
       maybeNameConversation(activeId);
+      /**
+       * ★ `busySendBehavior = 'interrupt'` 的落地：打断上一轮时把内容暂存在 ref 里，
+       *   等这一轮真的收尾（就是这里）再作为**新的一轮**发出去。
+       *   不能在打断的瞬间直接发 —— 那时 `busy` 还是 true，`runTurnRequest` 会和自己抢。
+       */
+      const queued = interruptedSendRef.current;
+      if (queued !== null) {
+        interruptedSendRef.current = null;
+        /**
+         * ★ 只有**用户还停在这个会话上**才自动重发（审计 `ALK-MED-03`）。
+         *   否则"打断后重发"会把内容发到用户已经切过去的那条会话里 ——
+         *   那是最难解释的一种串台：消息出现在一个你从没打算发消息的对话里。
+         *   切走了就把它放回输入框，用户回来自己决定。
+         */
+        if (activeIdRef.current === queued.conversationId) void runTurnRequest(queued.content);
+        else setDraft((current) => (current.length > 0 ? current : queued.content));
+      }
     }
   };
 
@@ -1342,6 +1435,23 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
     if (activeId === null) return;
     const content = draft.trim();
     if (content.length === 0) return;
+    /**
+     * ★ 这里才真正兑现「忙碌时发送行为」这个设置（2026-11-11 审计 `HIGH-01`）：
+     *   它以前只存在 `app_settings` 与设置界面上，**没有任何代码读它** —— 纯装饰。
+     * - `queue`（默认）：插话，排进当前这一轮的下一个 step
+     * - `interrupt`：立刻中止当前轮，等它收尾后**作为新一轮**发出去
+     */
+    if (general.busySendBehavior === 'interrupt') {
+      interruptedSendRef.current = { content, conversationId: activeId };
+      setDraft('');
+      try {
+        await api.stopTurn(activeId);
+      } catch (cause) {
+        interruptedSendRef.current = null;
+        setError(cause instanceof Error ? cause.message : String(cause));
+      }
+      return;
+    }
     try {
       const result = await api.queueSteering(activeId, content);
       setDraft('');
@@ -1763,15 +1873,28 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
               ref={textareaRef}
               value={draft}
               rows={1}
-              placeholder={hasConversation ? '输入消息，Enter 换行，Ctrl+Enter 发送' : '先选一个会话'}
+              placeholder={
+                !hasConversation
+                  ? '先选一个会话'
+                  : busy
+                    ? '模型输出中：打字后按发送 = 插话（排进这一轮的下一个步骤）；清空后按钮变停止'
+                    : '输入消息，Enter 换行，Ctrl+Enter 发送'
+              }
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
                   event.preventDefault();
-                  void handleSend();
+                  // ★ 输出中按发送 = 插话，不是"再开一轮"（与底部按钮同一判据）
+                  void (busy ? handleInterject() : handleSend());
                 }
               }}
-              disabled={busy || !hasConversation}
+              /**
+               * ★ 输出中**不禁用**（2026-11-11 审计 `HIGH-01`）：
+               *   原来这里写 `disabled={busy || !hasConversation}`，而"插话（steer）"的全部前提
+               *   就是**输出期间还能打字**。禁用 textarea 等于把 `/steer` 与 `busySendBehavior`
+               *   这两条功能一起锁死 —— 按钮在那儿，但永远没有内容能触发它。
+               */
+              disabled={!hasConversation}
             />
             <div className="composer-bar">
               <button
@@ -1783,6 +1906,16 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
                 <IconPlus size={15} />
               </button>
               <span className="grow" />
+              {/*
+                ★ 输入框下面的「工具集」按钮（用户 2026-11-10 要求）：
+                  打开的是**这个对话**的工具门控（会话级覆盖），与设置里的全局默认共用同一个面板。
+              */}
+              <ToolGateSummaryButton
+                conversationId={activeId}
+                disabled={!hasConversation}
+                summary={toolGateSummary}
+                onClick={() => setToolGateOpen(true)}
+              />
               <ModelPicker
                 model={activeConversation?.model ?? ''}
                 providerName={activeProvider?.name ?? '未连接'}
@@ -1961,6 +2094,8 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
               refreshKey={dashboard?.messageCount ?? 0}
               visibleTabs={panelSettings.visibleTabs}
               defaultTab={panelSettings.defaultTab}
+              /** ★ 右栏设置里的「高级区块默认展开」（审计 `ALK-MED-04`：这个开关此前从未接线） */
+              advancedOpen={panelSettings.advancedOpen}
               /**
                * ★ 看板点进子代理对话 / 切回主对话（用户 2026-11-10）。
                *
@@ -2190,6 +2325,23 @@ export function App(): React.ReactElement {  const [providers, setProviders] = u
               .catch(() => setPromptChars(null));
           }}
         />
+      )}
+
+      {/*
+        ★ 这个对话的工具集（输入框下面那个按钮打开）。用 modal wide，
+          因为够宽才能一行放下「名字 + 说明 + 体积/token/最近使用 + 三态」。
+      */}
+      {toolGateOpen && activeId !== null && (
+        <div className="modal-backdrop">
+          <div className="modal wide">
+            <ToolGatePanel
+              conversationId={activeId}
+              scopeLabel={activeConversation?.title ?? undefined}
+              onClose={() => { setToolGateOpen(false); }}
+              onSaved={() => { /* 小结的 effect 依赖 toolGateOpen，关掉时会重算 */ }}
+            />
+          </div>
+        </div>
       )}
 
       {dialog !== null && (

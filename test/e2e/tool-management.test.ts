@@ -28,7 +28,7 @@ function withServer(run: (ctx: { home: string; db: ReturnType<typeof openDatabas
     const config = { ...loadConfig(), home, dbPath: join(home, 'db.sqlite'), secretsPath: join(home, 'secrets.json') };
     const db = openDatabase(config.dbPath);
     migrate(db);
-    const app = buildServer({ config, db, tools: createDefaultRegistry(db) });
+    const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db, tools: createDefaultRegistry(db) });
     try {
       await run({ home, db, app });
     } finally {

@@ -35,6 +35,14 @@ export function registerPluginRoutes(app: FastifyInstance, deps: ServerDeps): vo
     if (host === undefined) return reply.code(503).send({ error: '插件宿主未启用' });
 
     const { id } = request.params as { id: string };
+    /**
+     * ★ 2026-11-11 审计 `ALK-MED-10`：插件不存在时不能**静默返回 null**。
+     * `host.start()` 对未知 id 是直接 return 的（它没得启动），于是这个路由以前会回 200 + `null` ——
+     * 前端按"重启成功"处理，用户以为已经重连了，实际什么都没发生。
+     */
+    if (!host.list().some((plugin) => plugin.id === id)) {
+      return reply.code(404).send({ error: '插件不存在' });
+    }
     await host.start(id);
     return host.list().find((plugin) => plugin.id === id) ?? null;
   });

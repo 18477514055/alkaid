@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 
 import type { McpServerDto } from '../../shared/mcp.ts';
 import { mcpManager } from '../../core/mcp/registry.ts';
+import { checkOutboundTarget } from '../../core/net/target-guard.ts';
 import {
   McpValidationError,
   deleteMcpServer,
@@ -32,6 +33,28 @@ import type { ServerDeps } from '../app.ts';
  * 3. **改连接参数才重连**。只改整组模式时不重启进程（服务器状态不该因为点了个开关就丢）。
  */
 
+/**
+ * 判断这个 MCP 配置是不是指向**我们自己的管理接口**。
+ * @returns 命中时返回一句给人看的拒绝理由；不命中返回 null
+ */
+function selfApiTarget(body: unknown, ownPort: number): string | null {
+  if (body === null || typeof body !== 'object') return null;
+  const raw = (body as { url?: unknown }).url;
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null; // 非法 URL 交给 store 层报它自己的错
+  }
+  const host = parsed.hostname.toLowerCase();
+  const loopback = host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]' || host === '0.0.0.0';
+  if (!loopback) return null;
+  const port = parsed.port.length > 0 ? Number.parseInt(parsed.port, 10) : parsed.protocol === 'https:' ? 443 : 80;
+  if (ownPort > 0 && port !== ownPort) return null;
+  return `这个 MCP 地址指向瑶光自己的接口（端口 ${String(ownPort)}）。请填真正的 MCP 服务器地址，不要指向本应用的管理面。`;
+}
+
 function dto(deps: ServerDeps, record: McpServerRecord): McpServerDto {
   return toMcpServerDto(record, mcpManager(deps.db, deps.tools).runtime(record));
 }
@@ -53,6 +76,24 @@ export function registerMcpRoutes(app: FastifyInstance, deps: ServerDeps): void 
   });
 
   app.post('/api/mcp/servers', async (request, reply) => {
+    /**
+     * ★ 2026-11-11 审计 `ALK-HIGH-07`（SSRF 的 MCP 那一半）。
+     *
+     * MCP 走 `http://127.0.0.1:3000/mcp` 是**正当用法**（绝大多数 MCP server 就在本机跑），
+     * 所以不能一刀切禁内网。真正要挡的是**指向我们自己管理面**的那一种：
+     * 模型注册一个 url 指向 `http://127.0.0.1:<我们的端口>/api/...` 的服务器，
+     * 就等于让宿主在沙箱外替它调管理接口（改权限档、再注册别的 MCP……）。
+     */
+    const selfTarget = selfApiTarget(request.body, deps.config.port);
+    if (selfTarget !== null) {
+      return reply.code(400).send({ error: selfTarget });
+    }
+    const egress = checkOutboundTarget(
+      typeof (request.body as { url?: unknown } | null)?.url === 'string' ? String((request.body as { url: string }).url) : 'http://127.0.0.1:1/', deps.config.port,
+    );
+    if (!egress.ok && typeof (request.body as { url?: unknown } | null)?.url === 'string') {
+      return reply.code(400).send({ error: egress.reason });
+    }
     try {
       const record = insertMcpServer(deps.db, request.body ?? {});
       // 先连一次：新增完就能看到 ready / error，而不是要用户再点一次「重新连接」

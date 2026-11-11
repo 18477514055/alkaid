@@ -63,10 +63,22 @@ export function createExecutionBoardTool(db: DatabaseSync): ToolDefinition {
           return result;
         }
         if (args['action'] !== 'update') throw Object.assign(new Error('Invalid execution action'), { statusCode: 400 });
-        if (reads.get(key) !== args['baseRevision'] || !reads.has(key)) throw Object.assign(new Error('Read the current execution board before each model update'), { statusCode: 409 });
-        reads.delete(key);
+        if (!reads.has(key) || reads.get(key) !== args['baseRevision']) throw Object.assign(new Error('Read the current execution board before each model update'), { statusCode: 409 });
+        /**
+         * ★★ 2026-11-11 审计 `HIGH-05`：令牌必须**在更新成功之后**才消费。
+         *
+         * 原来的顺序是 `reads.delete(key)` → `update(...)`，于是**任何一次失败的更新**
+         * （版本冲突被用户抢先改、参数校验不过）都会把令牌吃掉：
+         * 模型按提示"重读再试"能恢复，但如果它只是改个参数重试，就会拿到一条
+         * 看起来莫名其妙的 "Read the current execution board before each model update"。
+         *
+         * 现在保持文档里的契约（**每次更新前都要 read**：成功即消费令牌），
+         * 但把消费挪到 `updateExecutionBoard` **成功返回之后** —— 失败不烧令牌。
+         */
         const { action: _action, ...input } = args;
-        return delivered(updateExecutionBoard(db, projectId, ctx.conversationId, input as UpdateExecutionBoard, 'model'));
+        const updated = updateExecutionBoard(db, projectId, ctx.conversationId, input as UpdateExecutionBoard, 'model');
+        reads.delete(key);
+        return delivered(updated);
       } catch (error) {
         const controlled = error instanceof Error && typeof (error as Error & { statusCode?: unknown }).statusCode === 'number';
         return { ok: false, code: 'execution_board_rejected', message: controlled ? (error as Error).message : 'Execution board operation failed; read current state and check project/main-conversation scope.' };

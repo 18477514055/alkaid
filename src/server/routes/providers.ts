@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { probeModels } from '../../core/model/list-models.ts';
+import { checkOutboundTarget } from '../../core/net/target-guard.ts';
 import { listPresets } from '../../core/model/presets.ts';
 import { getSecret, readSecrets, removeSecret, setSecret } from '../../core/secrets.ts';
 import {
@@ -82,6 +83,13 @@ export function registerProviderRoutes(app: FastifyInstance, deps: ServerDeps): 
       return reply.code(400).send({ error: 'baseUrl 必须以 http:// 或 https:// 开头' });
     }
     if (apiKey.length === 0) return reply.code(400).send({ error: 'apiKey 必填' });
+
+    /**
+     * ★ 2026-11-11 审计 `ALK-HIGH-07`（SSRF）：这里会**由服务端**去请求调用方填的任意地址，
+     *   不判目标就等于让调用者借我们的网络位置访问内网 / 云元数据 / 我们自己的管理面。
+     */
+    const probeTarget = checkOutboundTarget(baseUrl, deps.config.port);
+    if (!probeTarget.ok) return reply.code(400).send({ error: probeTarget.reason });
 
     return probeModels({
       baseUrl,

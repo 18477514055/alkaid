@@ -2,6 +2,8 @@ import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { useMemo } from 'react';
 
+import { protectLocalLinkAttributes } from '../../src/shared/local-links.ts';
+
 /**
  * Markdown 渲染 —— 模型正文与工具输出都走这里。
  *
@@ -19,7 +21,9 @@ import { useMemo } from 'react';
 marked.setOptions({ gfm: true, breaks: true });
 
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.tagName === 'A' && node.getAttribute('href') !== null) {
+  // 最终净化阶段剥除危险导航目标，不能只在 Markdown renderer 或左键 click 上拦截。
+  protectLocalLinkAttributes(node, window.location.origin);
+  if (node.tagName?.toLowerCase() === 'a' && node.getAttribute('href') !== null) {
     node.setAttribute('target', '_blank');
     node.setAttribute('rel', 'noopener noreferrer');
   }
@@ -81,8 +85,17 @@ function withCodeChrome(html: string): string {
 export function Markdown(props: { text: string }): React.ReactElement {
   const html = useMemo(() => {
     const parsed = marked.parse(props.text, { async: false });
-    const cleaned = DOMPurify.sanitize(parsed, { ADD_ATTR: ['target'] });
-    return withCodeChrome(cleaned);
+    /**
+     * ★★ 2026-11-11 审计 `ALK-P3-⑥`：**先加工，再净化**。
+     *
+     * 原来的顺序是 `sanitize` → `withCodeChrome`（用正则往净化后的字符串里插 HTML），
+     * 于是最终交给 `dangerouslySetInnerHTML` 的那一段**没有经过净化器** ——
+     * 安全保证从"最后一步是净化"退化成"中间某一步是净化"。
+     * 当下它不构成 XSS（代码内容已被 marked 转义成 `&lt;`），但这条保证不该靠"当下碰巧安全"。
+     * 现在：`marked` → 加代码块工具条 → **一次净化**，净化器永远是最后一道。
+     */
+    const withChrome = withCodeChrome(parsed);
+    return DOMPurify.sanitize(withChrome, { ADD_ATTR: ['target'] });
   }, [props.text]);
 
   const onClick = (event: React.MouseEvent<HTMLDivElement>): void => {

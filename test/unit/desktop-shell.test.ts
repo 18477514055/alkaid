@@ -4,7 +4,7 @@
  * 为什么用假 electron 模块：`desktop/main.cjs` 顶部就 `require('electron')`，拿真实 Electron
  * 跑要开窗口（本机不允许打扰用户）。这里用 `Module._load` 拦截，把 `electron` /
  * `node:child_process` 换成桩，让 **真实的 main.cjs** 跑完它自己的启动流程：
- * 注册 IPC → pickPort → 起"内核"（假 spawn）→ 探活（假 fetch）→ createWindow（假 BrowserWindow）。
+ * 注册 IPC → 起"内核"（假 spawn）→ 私有 ready（EventEmitter）→ 内存 session cookie → createWindow。
  * 这样断言到的是**它实际注册的 handler 和实际传给 BrowserWindow 的 webPreferences**，
  * 不是读源码猜出来的。
  *
@@ -20,6 +20,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { createRequire, default as Module } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
@@ -71,6 +72,12 @@ interface FakeMainState {
   errorBoxes: string[];
   quitCount: number;
   quitSignalled: () => boolean;
+  events: string[];
+  partitions: Array<{ name: string; options: any }>;
+  cookies: any[];
+  appEvents: EventEmitter;
+  beforeHeaders: ((details: any, callback: (result: any) => void) => void) | null;
+  clearCount: number;
 }
 
 function makeFakeMainElectron(home: string) {
@@ -83,6 +90,23 @@ function makeFakeMainElectron(home: string) {
     errorBoxes: [],
     quitCount: 0,
     quitSignalled: () => state.quitCount > 0,
+    events: [],
+    partitions: [],
+    cookies: [],
+    appEvents: new EventEmitter(),
+    beforeHeaders: null,
+    clearCount: 0,
+  };
+  let cookieGate: Promise<void> = Promise.resolve();
+  const trustedSession = {
+    cookies: { set: async (cookie: any) => {
+      state.cookies.push(cookie);
+      state.events.push('cookie:start');
+      await cookieGate;
+      state.events.push('cookie:done');
+    } },
+    webRequest: { onBeforeSendHeaders: (handler: any) => { state.beforeHeaders = handler; } },
+    clearStorageData: async () => { state.clearCount += 1; },
   };
   /** 每条用例自己换；默认当作用户取消。 */
   let respond: (parent: any, options: any) => any = () => ({ canceled: true, filePaths: [] });
@@ -96,14 +120,24 @@ function makeFakeMainElectron(home: string) {
         setWindowOpenHandler: (fn: any) => {
           this.windowOpenHandler = fn;
         },
+        /**
+         * ★ 真实的 `webContents` 一定有 `.on`（`will-navigate` / `did-create-window` 都靠它）。
+         * 这个假体原来没实现它，于是主进程一调 `will-navigate` 就抛错、启动流程走不到 loadURL ——
+         * 测试报的是"等待条件超时"，看着像"窗口没建出来"，实际是**假体缺能力**。
+         */
+        on: (name: string, fn: any) => {
+          this.handlers.set(name, fn);
+        },
       };
       state.windows.push(this);
     }
     windowOpenHandler: any = null;
+    handlers: Map<string, any> = new Map();
     loadURL(url: string) {
+      state.events.push('loadURL');
       state.loadedUrls.push(url);
     }
-    on(_name: string, _fn: any) {}
+    on(name: string, fn: any) { this.handlers.set(`window:${name}`, fn); }
     isMinimized() {
       return false;
     }
@@ -120,7 +154,7 @@ function makeFakeMainElectron(home: string) {
   const electron = {
     app: {
       requestSingleInstanceLock: () => true,
-      on: () => {},
+      on: (name: string, fn: any) => state.appEvents.on(name, fn),
       whenReady: () => Promise.resolve(),
       quit: () => {
         state.quitCount += 1;
@@ -128,6 +162,10 @@ function makeFakeMainElectron(home: string) {
       getPath: () => home,
     },
     BrowserWindow: FakeBrowserWindow,
+    session: { fromPartition: (name: string, options: any) => {
+      state.partitions.push({ name, options });
+      return trustedSession;
+    } },
     Menu: { buildFromTemplate: (template: any) => template, setApplicationMenu: () => {} },
     shell: { openExternal: async () => {}, openPath: async () => {} },
     ipcMain: {
@@ -147,34 +185,47 @@ function makeFakeMainElectron(home: string) {
   return {
     electron,
     state,
+    trustedSession,
+    setCookieGate(gate: Promise<void>) { cookieGate = gate; },
     setDialogResponse(next: (parent: any, options: any) => any) {
       respond = next;
     },
   };
 }
 
-/** 用假 electron + 假 spawn + 假 fetch 跑一遍真实 main.cjs 的启动流程，返回被观察到的状态。 */
-async function bootRealMain(): Promise<{ state: FakeMainState; fake: ReturnType<typeof makeFakeMainElectron>; restore: () => void }> {
+/** 真实 main.cjs + EventEmitter child IPC/session；绝不把公开 health 误当认证。 */
+const TEST_LOCAL_TOKEN = 'synthetic_desktop_test_token_not_a_secret_123456';
+async function bootRealMain(options: {
+  ready?: false | { url?: string; localToken?: string | null };
+  cookieGate?: Promise<void>;
+  inspectPending?: (context: { state: FakeMainState; child: EventEmitter; fake: ReturnType<typeof makeFakeMainElectron> }) => Promise<void>;
+} = {}) {
   const home = mkdtempSync(join(tmpdir(), 'alkaid-desktop-home-'));
   const fake = makeFakeMainElectron(home);
-  const spawnCalls: Array<{ command: string; args: string[] }> = [];
-  const noop = () => {};
+  if (options.cookieGate) fake.setCookieGate(options.cookieGate);
+  const spawnCalls: Array<{ command: string; args: string[]; options: any }> = [];
+  const child = Object.assign(new EventEmitter(), {
+    stdout: new EventEmitter(), stderr: new EventEmitter(),
+    kill: () => { child.emit('exit', 0); },
+  });
   const fakeChildProcess = {
-    spawn: (command: string, args: string[]) => {
-      spawnCalls.push({ command, args });
-      return { stdout: { on: noop }, stderr: { on: noop }, on: noop, kill: noop };
+    spawn: (command: string, args: string[], spawnOptions: any) => {
+      spawnCalls.push({ command, args, options: spawnOptions });
+      return child;
     },
   };
-  void spawnCalls;
-
   const previousHome = process.env.ALKAID_HOME;
   const previousPort = process.env.ALKAID_PORT;
   process.env.ALKAID_HOME = home;
-  process.env.ALKAID_PORT = '0';
+  process.env.ALKAID_PORT = '43123';
   const realFetch = globalThis.fetch;
-  globalThis.fetch = (async () => ({ ok: true, status: 200 })) as unknown as typeof globalThis.fetch;
-
+  let publicHealthCalls = 0;
+  globalThis.fetch = (async () => {
+    publicHealthCalls += 1;
+    return { ok: true, status: 200 };
+  }) as unknown as typeof globalThis.fetch;
   const restore = () => {
+    fake.state.appEvents.emit('before-quit');
     globalThis.fetch = realFetch;
     if (previousHome === undefined) delete process.env.ALKAID_HOME;
     else process.env.ALKAID_HOME = previousHome;
@@ -184,15 +235,131 @@ async function bootRealMain(): Promise<{ state: FakeMainState; fake: ReturnType<
     delete requireCjs.cache[PRELOAD_CJS];
     rmSync(home, { recursive: true, force: true });
   };
-
-  await withPatchedLoads({ electron: fake.electron, 'node:child_process': fakeChildProcess, child_process: fakeChildProcess }, async () => {
-    freshRequire(MAIN_CJS);
-    // main.cjs 的 whenReady 回调是异步的：等它真的把窗口造出来（由此证明 preload 被挂上）。
-    await waitFor(() => fake.state.windows.length > 0);
-    await waitFor(() => fake.state.loadedUrls.length > 0);
-  });
-  return { state: fake.state, fake, restore };
+  try {
+    await withPatchedLoads({ electron: fake.electron, 'node:child_process': fakeChildProcess, child_process: fakeChildProcess }, async () => {
+      freshRequire(MAIN_CJS);
+      await waitFor(() => child.listenerCount('message') > 0);
+      assert.equal(fake.state.windows.length, 0, '未收到可信 IPC 时不能开窗（即使 health 200）');
+      if (options.ready !== false) {
+        child.emit('message', { type: 'alkaid:ready', url: options.ready?.url ?? 'http://127.0.0.1:43123',
+          localToken: options.ready?.localToken === undefined ? TEST_LOCAL_TOKEN : options.ready.localToken });
+      }
+      if (options.inspectPending) await options.inspectPending({ state: fake.state, child, fake });
+      if (options.ready === false) {
+        assert.equal(fake.state.windows.length, 0);
+        child.emit('disconnect');
+      }
+      await waitFor(() => fake.state.loadedUrls.length > 0 || fake.state.quitCount > 0);
+    });
+  } catch (error) {
+    restore();
+    throw error;
+  }
+  return { state: fake.state, fake, restore, spawnCalls, publicHealthCalls };
 }
+
+test('desktop auth: 私有 IPC → 内存 session → HttpOnly cookie 完成 → loadURL；token 不进 env/argv/preload', async () => {
+  let releaseCookie!: () => void;
+  const cookieGate = new Promise<void>((resolveGate) => { releaseCookie = resolveGate; });
+  const { state, fake, restore, spawnCalls, publicHealthCalls } = await bootRealMain({ cookieGate,
+    inspectPending: async ({ state }) => {
+      await waitFor(() => state.cookies.length === 1);
+      assert.equal(state.windows.length, 0, 'cookies.set 尚未完成时不能建窗');
+      assert.equal(state.loadedUrls.length, 0);
+      releaseCookie();
+    },
+  });
+  try {
+    assert.deepEqual(state.events, ['cookie:start', 'cookie:done', 'loadURL']);
+    assert.equal(state.partitions.length, 1);
+    assert.match(state.partitions[0]!.name, /^alkaid-[0-9a-f-]{36}$/);
+    assert.ok(!state.partitions[0]!.name.startsWith('persist:'));
+    assert.deepEqual(state.partitions[0]!.options, { cache: false });
+    assert.deepEqual(state.cookies[0], { url: 'http://127.0.0.1:43123', name: 'alkaid_local',
+      value: TEST_LOCAL_TOKEN, httpOnly: true, sameSite: 'strict', path: '/' });
+    assert.equal(state.windows[0]!.options.webPreferences.session, fake.trustedSession);
+    assert.deepEqual(spawnCalls[0]!.options.stdio, ['ignore', 'pipe', 'pipe', 'ipc']);
+    assert.ok(!JSON.stringify(spawnCalls).includes(TEST_LOCAL_TOKEN), 'token 不得进入 argv 或 env');
+    assert.ok(!JSON.stringify(state.windows[0]!.options).includes(TEST_LOCAL_TOKEN), 'token 不得进入 renderer 参数');
+    assert.ok(!readFileSync(PRELOAD_CJS, 'utf8').includes(TEST_LOCAL_TOKEN));
+    assert.deepEqual([...state.handlers.keys()], ['alkaid:pick-directory'], '没有获取 token 的 renderer IPC');
+    assert.equal(publicHealthCalls, 0, '启动认证完全不依赖公开 health');
+    state.windows.splice(0);
+    state.appEvents.emit('activate');
+    assert.equal(state.windows[0]!.options.webPreferences.session, fake.trustedSession, '恢复窗口沿用已授权 session');
+    assert.equal(state.partitions.length, 1);
+    state.appEvents.emit('before-quit');
+    assert.equal(state.clearCount, 1);
+  } finally { restore(); }
+});
+
+test('desktop auth: cookie 注入失败不开窗，错误框不泄露凭证', async () => {
+  let failCookie!: (error: Error) => void;
+  const cookieGate = new Promise<void>((_resolveGate, rejectGate) => { failCookie = rejectGate; });
+  const { state, restore } = await bootRealMain({ cookieGate, inspectPending: async ({ state }) => {
+    await waitFor(() => state.cookies.length === 1);
+    failCookie(new Error(TEST_LOCAL_TOKEN));
+  } });
+  try {
+    assert.equal(state.windows.length, 0);
+    assert.equal(state.loadedUrls.length, 0);
+    assert.match(state.errorBoxes[0]!, /安全会话/);
+    assert.ok(!state.errorBoxes.join('').includes(TEST_LOCAL_TOKEN));
+  } finally { restore(); }
+});
+
+test('desktop auth: 无可信 IPC 不开窗；错误 origin/port/protocol 和非法 token 全部 fail closed', async () => {
+  const noReady = await bootRealMain({ ready: false });
+  try {
+    assert.equal(noReady.state.windows.length, 0);
+    assert.equal(noReady.state.cookies.length, 0);
+    assert.match(noReady.state.errorBoxes[0]!, /IPC/);
+  } finally { noReady.restore(); }
+  for (const ready of [
+    { url: 'http://127.0.0.1:43124' }, { url: 'https://127.0.0.1:43123' },
+    { url: 'http://localhost:43123' }, { url: 'http://evil.example:43123' },
+    { url: 'http://127.0.0.1:43123@evil.example/' }, { url: 'http://127.0.0.1:43123/extra' },
+    { localToken: 'bad\r\nvalue' },
+  ]) {
+    const result = await bootRealMain({ ready });
+    try {
+      assert.equal(result.state.windows.length, 0);
+      assert.equal(result.state.cookies.length, 0);
+      assert.equal(result.state.partitions.length, 0);
+      assert.match(result.state.errorBoxes[0]!, /IPC/);
+      assert.ok(!result.state.errorBoxes.join('').includes(TEST_LOCAL_TOKEN));
+    } finally { result.restore(); }
+  }
+});
+
+test('desktop auth: 仅相同 origin 保留 Cookie，跨端口/主机/协议和前缀欺骗导航被拦截', async () => {
+  const { state, restore } = await bootRealMain();
+  try {
+    for (const target of ['http://127.0.0.1:43123/api/x', 'http://127.0.0.1:43124/api/x',
+      'https://127.0.0.1:43123/', 'http://localhost:43123/', 'http://127.0.0.1:43123@evil.example/',
+      'http://127.0.0.1:431230/', 'not-a-url']) {
+      const trusted = target === 'http://127.0.0.1:43123/api/x';
+      let result: any;
+      state.beforeHeaders!({ url: target, requestHeaders: { Cookie: `alkaid_local=${TEST_LOCAL_TOKEN}`, cookie: 'other=1', Accept: '*/*' } }, (next) => { result = next; });
+      assert.equal(Object.hasOwn(result.requestHeaders, 'Cookie'), trusted, target);
+      assert.equal(Object.hasOwn(result.requestHeaders, 'cookie'), trusted, target);
+      assert.equal(result.requestHeaders.Accept, '*/*');
+      for (const eventName of ['will-navigate', 'will-redirect']) {
+        let prevented = false;
+        (state.windows[0] as any).handlers.get(eventName)({ preventDefault: () => { prevented = true; } }, target);
+        assert.equal(prevented, !trusted, `${eventName}: ${target}`);
+      }
+    }
+  } finally { restore(); }
+});
+
+test('desktop auth: 显式禁用本机鉴权时仍需可信 ready，但不设置 cookie', async () => {
+  const { state, restore } = await bootRealMain({ ready: { localToken: null } });
+  try {
+    assert.equal(state.windows.length, 1);
+    assert.deepEqual(state.cookies, []);
+  } finally { restore(); }
+});
 
 test('desktop main: BrowserWindow 挂上 preload，且 contextIsolation/nodeIntegration/sandbox 三项显式正确', async () => {
   const { state, restore } = await bootRealMain();

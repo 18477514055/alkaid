@@ -34,7 +34,7 @@ async function withHarness(run: (ctx: Harness) => Promise<void>): Promise<void> 
 
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 
   try {
     await run({

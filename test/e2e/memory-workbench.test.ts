@@ -20,7 +20,7 @@ function fixture(t: TestContext) {
   const project = insertProject(db, { id: randomUUID(), name: 'A', sharedDir: join(home, 'workspace-never-write') });
   const other = insertProject(db, { id: randomUUID(), name: 'B', sharedDir: join(home, 'other-never-write') });
   const conversation = insertConversation(db, { providerId: provider.id, model: 'offline', projectId: project.id });
-  const app = buildServer({ db, config });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db, config });
   const fetchMock = t.mock.method(globalThis, 'fetch', async () => { throw new Error('Network forbidden in workbench tests'); });
   t.after(async () => { await app.close(); db.close(); rmSync(home, { recursive: true, force: true }); assert.equal(fetchMock.mock.callCount(), 0); });
   const prefix = `/api/projects/${project.id}/memory`;

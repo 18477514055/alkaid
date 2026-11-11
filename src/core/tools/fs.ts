@@ -301,13 +301,15 @@ const editTool: ToolDefinition = {
 // ────────────────────────────── 遍历 ──────────────────────────────
 
 /** 遍历文件；**不跟随目录符号链接**（防环、防跑出授权范围） */
-function walkFiles(base: string, limit: number): string[] {
+function walkFiles(base: string, limit: number, ctx: ToolContext): string[] {
   const out: string[] = [];
   const stack: string[] = [base];
 
   while (stack.length > 0 && out.length < limit) {
     const dir = stack.pop();
     if (dir === undefined) break;
+    // Recheck EACH directory, not just the traversal root (which may be home or a drive root).
+    if (!checkAccess(ctx.roots, 'read', dir).ok) continue;
 
     let entries;
     try {
@@ -318,8 +320,9 @@ function walkFiles(base: string, limit: number): string[] {
 
     for (const entry of entries) {
       if (out.length >= limit) break;
-      if (entry.isSymbolicLink()) continue;
       const full = resolve(dir, entry.name);
+      if (!checkAccess(ctx.roots, 'read', full).ok) continue;
+      if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
         if (SKIP_DIRS.has(entry.name)) continue;
         stack.push(full);
@@ -405,10 +408,11 @@ const globTool: ToolDefinition = {
 
     const limit = typeof args.limit === 'number' && args.limit > 0 ? Math.min(Math.trunc(args.limit), 2_000) : 200;
     const matcher = globToRegExp(args.pattern.trim());
-    const files = walkFiles(prepared.path, MAX_WALK_ENTRIES);
+    const files = walkFiles(prepared.path, MAX_WALK_ENTRIES, ctx);
 
     const hits: string[] = [];
     for (const file of files) {
+      if (!checkAccess(ctx.roots, 'read', file).ok) continue;
       const rel = relative(ctx.cwd, file).replaceAll('\\', '/');
       if (matcher.test(rel) || matcher.test(basename(file))) hits.push(rel);
       if (hits.length >= limit) break;
@@ -480,12 +484,13 @@ const grepTool: ToolDefinition = {
     if (!prepared.ok) return prepared.outcome;
 
     const fileFilter = typeof args.glob === 'string' && args.glob.length > 0 ? globToRegExp(args.glob) : null;
-    const files = walkFiles(prepared.path, MAX_WALK_ENTRIES);
+    const files = walkFiles(prepared.path, MAX_WALK_ENTRIES, ctx);
     const matches: string[] = [];
     let scanned = 0;
 
     for (const file of files) {
       if (scanned >= MAX_GREP_FILES || matches.length >= MAX_GREP_MATCHES) break;
+      if (!checkAccess(ctx.roots, 'read', file).ok) continue;
       const rel = relative(ctx.cwd, file).replaceAll('\\', '/');
       if (fileFilter !== null && !fileFilter.test(rel) && !fileFilter.test(basename(file))) continue;
 

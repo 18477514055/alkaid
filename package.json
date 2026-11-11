@@ -1,9 +1,10 @@
 {
   "name": "alkaid",
-  "version": "0.2.0",
+  "version": "0.3.0",
+  "private": true,
   "type": "module",
   "main": "desktop/main.cjs",
-  "description": "瑶光 Alkaid —— 极简内核 + 插件化的个人 AI Agent 平台（本地优先，数据不出本机）",
+  "description": "瑶光（Alkaid）—— 极简内核 + 插件化的个人 Agent 平台",
   "engines": {
     "node": ">=24.0.0"
   },
@@ -13,6 +14,7 @@
     "web:dev": "vite",
     "web:build": "vite build",
     "build": "vite build",
+    "dist": "node scripts/build-dist.mjs",
     "desktop": "electron .",
     "test": "node --test \"test/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.web.json",
@@ -37,25 +39,5 @@
     "electron": "^45.2.3",
     "typescript": "^5.9.3",
     "vite": "^8.3.5"
-  },
-  "license": "MIT",
-  "author": "Alkaid contributors",
-  "homepage": "https://github.com/18477514055/alkaid#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/18477514055/alkaid.git"
-  },
-  "bugs": {
-    "url": "https://github.com/18477514055/alkaid/issues"
-  },
-  "keywords": [
-    "ai",
-    "agent",
-    "llm",
-    "local-first",
-    "electron",
-    "mcp",
-    "sqlite",
-    "typescript"
-  ]
+  }
 }

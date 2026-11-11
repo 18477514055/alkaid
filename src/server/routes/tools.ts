@@ -55,8 +55,7 @@ export function registerToolRoutes(app: FastifyInstance, deps: ServerDeps): void
    *
    * body：`{ mode: 'resident' | 'lazy' | 'disabled' }` 或 `{ reset: true }`（回到代码默认）。
    */
-  app.patch('/api/tools/:name', async (request, reply) => {
-    const { name } = request.params as { name: string };
+  app.patch('/api/tools/:name', async (request, reply) => {    const { name } = request.params as { name: string };
     const body = (request.body ?? {}) as Record<string, unknown>;
 
     // 名字必须存在于注册表，或者是"配置还留着但工具不在了"的那一类

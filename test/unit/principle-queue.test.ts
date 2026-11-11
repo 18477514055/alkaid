@@ -126,7 +126,7 @@ test('deferred human decision does not block normal memory progress or require t
 });
 
 test('existing HTTP propose and list return program review without adding a model endpoint', async t => {
-  const f = fixture(t); const app = buildServer({ db: f.db, config: f.config });
+  const f = fixture(t); const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db: f.db, config: f.config });
   try {
     const url = `/api/projects/${f.project.id}/memory/principles/proposals`;
     const first = await app.inject({ method: 'POST', url, payload: f.input });

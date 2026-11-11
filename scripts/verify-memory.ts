@@ -65,7 +65,7 @@ const project = createProject(db, config, { name: '台账集成 · 隔离验收'
 const a = insertConversation(db, { title: '验收 A · 接口', providerId: provider.id, model: 'offline-review-model', projectId: project.id, permissionMode: 'project' });
 const b = insertConversation(db, { title: '验收 B · 测试', providerId: provider.id, model: 'offline-review-model', projectId: project.id, permissionMode: 'project' }); bId = b.id;
 const solo = insertConversation(db, { title: '未绑定项目', providerId: provider.id, model: 'offline-review-model' });
-const app = buildServer({ config, db });
+const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 await app.register(fastifyStatic, { root: resolve('dist/web'), prefix: '/' });
 app.get('/__verify/status', async () => ({ maintenanceCalls: calls, primaryCalls, projectId: project.id, conversationA: a.id, conversationB: b.id, solo: solo.id }));
 const baseURL = await app.listen({ host: '127.0.0.1', port: 0 });

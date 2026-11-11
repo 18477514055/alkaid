@@ -55,18 +55,52 @@ export function createDefaultRegistry(
         ...(options?.secretsPath === undefined ? {} : { secretsPath: options.secretsPath }),
         ...(options?.delegateAllowedModels === undefined ? {} : { allowedModels: options.delegateAllowedModels }),
         ...(options?.delegateAllowParentModel === undefined ? {} : { allowParentModel: options.delegateAllowParentModel }),
+        /**
+         * ★★ 把注册表交给委派工具（2026-11-11 审计 `CRITICAL-02`）。
+         *
+         * 少了这一句，子代理跑 `runTurn` 时 `options.tools` 是 undefined ⇒
+         * `createSurface` 不建、`providerTools` 为空数组 ⇒ **子代理一个工具都用不了**，
+         * 而界面上完全看不出来（它只是"什么都不做"）。
+         * 用 getter 是因为此刻 `registry` 还没注册完（先有鸡先有蛋）。
+         */
+        getTools: () => registry,
       }),
     );
-    const registerMemory = (tool:ToolDefinition) => registry.register({ ...tool,
-      async execute(args,ctx) {
-        if (ctx.agentRole === 'subagent' || getConversation(db,ctx.conversationId)?.agentRole === 'subagent') return { ok:false, code:'tool_not_found', message:'子智能体只返回委派结果，项目记忆由主对话维护。' };
-        return tool.execute(args,ctx);
-      },
-    });
-    for (const tool of createMemoryTools(db)) registerMemory(tool);
-    for (const tool of createMemoryWorkbenchTools(db)) registerMemory(tool);
-    registerMemory(createMemoryDispositionTool(db));
-    registerMemory(createExecutionBoardTool(db));
+    /**
+     * ★ 只有**写台账**的工具走这里（2026-11-11 审计 `CRITICAL-01` 修正）。
+     *
+     * 原判据是"子代理一律挡掉整族 memory_*，连 execution_board 一起挡"，
+     * 与用户 2026-11-10 的裁定「子代理可以只读所有东西，只能改自己的看板」冲突：
+     * 结果子代理看不见 `execution_board`，主对话右侧委派看板的"目标与任务"永远为空。
+     *
+     * 现在按**动作**分：写（propose / stage / disposition）挡；
+     * 读（memory_read / memory_query）与自己的看板（execution_board）放行 ——
+     * 越权判据在工具自身（`core/memory/execution.ts` 按归属判），不在这里一刀切。
+     */
+    const registerWriteGuard = (tool: ToolDefinition): void => {
+      registry.register({
+        ...tool,
+        async execute(args, ctx) {
+          if (ctx.agentRole === 'subagent' || getConversation(db, ctx.conversationId)?.agentRole === 'subagent') {
+            return { ok: false, code: 'tool_not_found', message: '子智能体不写项目台账；请把结果返回主对话。' };
+          }
+          return tool.execute(args, ctx);
+        },
+      });
+    };
+    const WRITE_TOOLS = new Set(['memory_propose', 'memory_stage', 'memory_disposition']);
+    for (const tool of createMemoryTools(db)) {
+      if (WRITE_TOOLS.has(tool.name)) registerWriteGuard(tool);
+      else registry.register(tool);
+    }
+    for (const tool of createMemoryWorkbenchTools(db)) {
+      // 工作台工具（制品暂存 / 交接 / 扩展）都是写语义 ⇒ 仍归主对话
+      if (WRITE_TOOLS.has(tool.name)) registerWriteGuard(tool);
+      else registry.register(tool);
+    }
+    registerWriteGuard(createMemoryDispositionTool(db));
+    // ★ 看板放行：它只能写 `ctx.conversationId` 那一行（参数里没有 conversationId）
+    registry.register(createExecutionBoardTool(db));
     /**
      * ★ `team_tasks` **不走 `registerMemory`** —— 这是刻意的。
      *

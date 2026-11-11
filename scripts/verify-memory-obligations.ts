@@ -63,7 +63,7 @@ setMemoryPolicy(db,foreign.id,{thresholdPercent:0});
 const conv=(title:string)=>insertConversation(db,{providerId:provider.id,model:'local-obligation-model',projectId:project.id,permissionMode:'full',title});
 const a=conv('A · 有成果但故意漏交');const b=conv('B · 共享读取与无新增');const c=conv('C · 模拟拒交后待处理');const legacy=conv('旧版欠账 · 只待复核');
 recordTurnProgress(db,legacy.id,0,'progress_not_recorded');
-const app=buildServer({config,db});await app.register(fastifyStatic,{root:resolve('dist/web'),prefix:'/'});
+const app=buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */config,db});await app.register(fastifyStatic,{root:resolve('dist/web'),prefix:'/'});
 let stopping=false;async function close(){if(stopping)return;stopping=true;await app.close();await new Promise<void>(done=>fake.close(()=>done()));db.close();assert.ok(resolve(home).startsWith(resolve(tmpdir(),'alkaid-obligation-review-')));rmSync(home,{recursive:true,force:true});}
 app.get('/__verify/status',async()=>({allCalls,primaryCalls,closureCalls,maintenanceCalls,projectId:project.id,foreignProjectId:foreign.id,a:a.id,b:b.id,c:c.id,legacy:legacy.id}));
 app.post('/__verify/stop',async()=>{setTimeout(()=>void close(),50);return{stopping:true};});

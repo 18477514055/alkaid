@@ -22,12 +22,21 @@ if (!existsSync(EXE)) {
 const desktop = join(homedir(), 'Desktop');
 const shortcutPath = join(desktop, '瑶光.lnk');
 
+/**
+ * ★ 2026-11-11 审计 `ALK-P3-④`：路径是**拼进 PowerShell 脚本**的，必须转义单引号。
+ *   PowerShell 单引号字符串里 `'` 的转义是 `''`。不转义时，一个带单引号的用户名/路径
+ *   就能让整段脚本语法错乱（坏的话是报错，坏得刚刚好就是**注入**）。
+ */
+function psQuote(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
 const script = `
 $shell = New-Object -ComObject WScript.Shell
-$sc = $shell.CreateShortcut('${shortcutPath}')
-$sc.TargetPath = '${EXE}'
-$sc.WorkingDirectory = '${dirname(EXE)}'
-${existsSync(ICON) ? `$sc.IconLocation = '${ICON},0'` : ''}
+$sc = $shell.CreateShortcut(${psQuote(shortcutPath)})
+$sc.TargetPath = ${psQuote(EXE)}
+$sc.WorkingDirectory = ${psQuote(dirname(EXE))}
+${existsSync(ICON) ? `$sc.IconLocation = ${psQuote(`${ICON},0`)}` : ''}
 $sc.Description = '瑶光 —— 本地个人 Agent'
 $sc.Save()
 Write-Output $sc.FullName

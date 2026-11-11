@@ -240,6 +240,20 @@ async function runInSandbox(command: string, options: {
     '$ErrorActionPreference = "Continue"',
     '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
     '$OutputEncoding = [System.Text.Encoding]::UTF8',
+    /**
+     * ★★ 2026-11-11 审计 `ALK-HIGH-02`：这里以前**静默丢掉** `ctx.cwd`，
+     * 进程的工作目录被钉死在 `tempDir/shell-sandbox`（一个空目录）——
+     * 于是用户/模型写的 `Get-ChildItem .`、`node build.mjs` 之类相对路径全落到空目录里，
+     * 表现是"明明在工作区，命令却说找不到文件"。
+     *
+     * 为什么不是直接把 `cwd` 传给 `CreateProcessAsUser`：用户目录是 Medium 完整性，
+     * 而我们**绝不给用户目录打 Low 标签**（那会永久削弱用户对目录标签的控制权，2026-11-06 真机事故）。
+     * 折中：进程仍以沙箱目录启动（保证能落临时文件），进入后 `Set-Location` 到真实工作目录 ——
+     * **读**能读到（MIC 只挡写不挡读），**写**仍然被系统拒绝（这正是受限档想要的边界）。
+     */
+    ...(options.cwd.length > 0 && existsSync(options.cwd)
+      ? [`Set-Location -LiteralPath '${options.cwd.replaceAll("'", "''")}'`]
+      : []),
     command,
     'if ($LASTEXITCODE -ne $null -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }',
   ].join('\n');

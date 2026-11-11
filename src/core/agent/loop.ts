@@ -21,7 +21,8 @@ import {
 } from '../store/repo.ts';
 import { recordStepEvent } from '../store/audit.ts';
 import { createSurface, type ToolSurface } from '../tools/runtime.ts';
-import { recordToolUse, toolModeMap } from '../tools/settings.ts';
+import { recordToolUse } from '../tools/settings.ts';
+import { effectiveToolModes } from '../tools/gate.ts';
 import type { ToolContext, ToolOutcome, ToolRegistry } from '../tools/types.ts';
 import { PromptBuilder } from './prompt/builder.ts';
 import { builtinSources } from './prompt/builtin.ts';
@@ -233,7 +234,9 @@ export async function* runTurn(options: RunTurnOptions): AsyncGenerator<TurnEven
   // ★ 工具可见性与"发什么"由**同一个对象**决定（ToolSurface）：
   //   它一次冻结「权限档 + 用户三态配置 + 目录构建」，
   //   所以"模型看到的工具"与"执行时放行的工具"不可能不一致。
-  const toolModes = toolModeMap(db);
+  //   ★ v18 起三态是**三层合并**：会话覆盖 → 全局设置 → 定义默认。
+  //     不传 conversationId 的调用方（子代理/维护）自然退回全局，行为与以前一致。
+  const toolModes = effectiveToolModes(db, conversationId);
   const surface =
     options.tools === undefined ? undefined : createSurface(options.tools, permissionMode, toolModes, agentRole);
   const providerTools = surface?.tools ?? [];
@@ -646,7 +649,9 @@ export async function* runTurn(options: RunTurnOptions): AsyncGenerator<TurnEven
     if (conversation.projectId !== null && !signal.aborted
       && (finalReason === 'stop' || finalReason === 'completed')) {
       try {
-        autoApproveOnTurnEnd(db, conversation.projectId);
+        // ★ 只批准**本对话**自己提交的提案（审计 `ALK-HIGH-05`）：
+        //   别人的留给维护 AI 的多作者合并审查，否则那个机制被静默绕过。
+        autoApproveOnTurnEnd(db, conversation.projectId, conversationId);
       } catch {
         // 失败不重试、不影响本轮结果。审计也尽力而为 —— 绝不能让它再抛一次。
         try {

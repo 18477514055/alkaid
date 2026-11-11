@@ -2,7 +2,7 @@ import type { ToolDef } from '../../shared/types.ts';
 import type { PermissionMode } from '../policy/mode.ts';
 import { buildCatalog, DESCRIBE_TOOL_NAME, type BuiltCatalog, type ToolModeMap } from './catalog.ts';
 import { createDescribeTool } from './describe.ts';
-import { ToolRegistry, isProjectMemoryTool, type ToolContext, type ToolOutcome } from './types.ts';
+import { ToolRegistry, isSubagentForbiddenMemoryTool, type ToolContext, type ToolOutcome } from './types.ts';
 
 /**
  * **工具运行时** —— 主循环与 HTTP 面**唯一**该碰的东西。
@@ -39,7 +39,15 @@ export class ToolSurface {
   constructor(registry: ToolRegistry, mode: PermissionMode, modes: ToolModeMap = new Map(), agentRole: 'main' | 'subagent' = 'main') {
     this.#registry = agentRole === 'subagent' ? new ToolRegistry() : registry;
     if (agentRole === 'subagent') for (const tool of registry.list()) {
-      if (!isProjectMemoryTool(tool)) this.#registry.register(tool.definition);
+      /**
+       * 子代理的工具面：
+       * - 去掉**写台账**的那几个（`isSubagentForbiddenMemoryTool`）
+       * - 去掉 `delegate` 本身 —— 子代理不能再派（否则一层套一层，账算不清）。
+       *   ★ 这条以前只靠工具内部拒绝，于是它**仍然出现在工具表里**：
+       *     模型看得见、调了才被拒，白烧一次调用。可见性就是权限，这里直接不给。
+       */
+      if (tool.name === 'delegate') continue;
+      if (!isSubagentForbiddenMemoryTool(tool)) this.#registry.register(tool.definition);
     }
     this.#mode = mode;
     this.#modes = modes;

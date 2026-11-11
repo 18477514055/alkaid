@@ -5,6 +5,8 @@ import { MEMORY_WORKBENCH_SCHEMA_SQL } from '../memory/workbench-schema.ts';
 import { MEMORY_CONTEXT_SCHEMA_SQL } from '../memory/context-schema.ts';
 import { MEMORY_OBLIGATIONS_SCHEMA_SQL } from '../memory/obligations-schema.ts';
 import { COMPACTION_SCHEMA_SQL } from '../context/compaction-schema.ts';
+import { TOOL_GATE_SCHEMA_SQL } from './tool-gate-schema.ts';
+import { V19_TOOL_DELEGATION_CASCADE_FIX } from '../agent/delegation-cascade-fix.ts';
 import { EXECUTION_SCHEMA_SQL } from '../memory/execution-schema.ts';
 import { DELEGATION_SCHEMA_SQL } from '../agent/delegation-schema.ts';
 import { MEMORY_RHYTHM_SCHEMA_SQL } from '../memory/rhythm.ts';
@@ -441,6 +443,8 @@ const MIGRATIONS: readonly Migration[] = [
   { version: 15, sql: DELEGATION_SCHEMA_SQL },
   { version: 16, sql: TEAM_SCHEMA_SQL },
   { version: 17, sql: COMPACTION_SCHEMA_SQL },
+  { version: 18, sql: TOOL_GATE_SCHEMA_SQL },
+  { version: 19, sql: V19_TOOL_DELEGATION_CASCADE_FIX },
 ];
 
 /**
@@ -486,6 +490,8 @@ export const BUSINESS_TABLES: readonly string[] = [
   //   不进来的表，建漏了也没人知道。
   'team_boards', 'team_tasks', 'team_task_events',
   'compaction_attempts', 'compaction_events', 'compaction_metadata',
+  // ★ 工具门控（v18）：会话级工具集 + 工具模板
+  'conversation_tool_settings', 'tool_templates',
 ];
 
 const MIGRATIONS_TABLE = `

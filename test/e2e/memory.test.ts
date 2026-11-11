@@ -34,7 +34,7 @@ function fixture(t: TestContext) {
       yield { type: 'error', message: 'offline failure', retryable: true };
     },
   }) });
-  const app = buildServer({ db, config, memory });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db, config, memory });
   t.after(async () => {
     await app.close();
     await memory.close();

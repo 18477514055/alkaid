@@ -143,11 +143,19 @@ test('② 改文本不是绕过 CAS 的后门：stale 提案改完再接受仍�
   assert.equal(getMemoryView(db, project).records[0]?.content, 'v1');
 }));
 
-test('② input_json 跟着文本走：同 key 同新文本幂等返回，旧文本则 409', () => withDb(({ db, project, conv }) => {
+test('② 编辑不改幂等指纹：原参数仍幂等返回，新参数仍 409（审计 ALK-HIGH-04）', () => withDb(({ db, project, conv }) => {
   const proposal = submitProposal(db, input(conv, { content: 'original text' }));
   updatePendingProposalText(db, project, proposal.id, { conversationId: conv, content: 'edited text' });
-  // 同一把 idempotencyKey + 同一份（已编辑的）参数 ⇒ 还是同一条提案。
-  assert.equal(submitProposal(db, input(conv, { content: 'edited text' })).id, proposal.id);
-  // 参数确实变了 ⇒ 仍然按既有规则拒绝，不会被"编辑过"这件事洗白。
-  assert.throws(() => submitProposal(db, input(conv, { content: 'original text' })), status(409));
+
+  /**
+   * ★ 判据变了（审计 `ALK-HIGH-04`）：编辑改的是**内容**，不是**提交指纹**。
+   *   `input_json` 是幂等键的指纹，改写它会让"编辑过的提案"永远无法被原参数重放命中 ——
+   *   而按新参数重试又不是同一个 key，两条路都堵死。现在：
+   * - 用**原参数**重试 ⇒ 幂等命中同一条（内容仍是编辑后的）；
+   * - 用**新参数**重试 ⇒ 指纹不一致，照既有规则 409。
+   */
+  assert.equal(submitProposal(db, input(conv, { content: 'original text' })).id, proposal.id);
+  assert.throws(() => submitProposal(db, input(conv, { content: 'edited text' })), status(409));
+  // 库里的内容确实是编辑后的那份
+  assert.equal(getMemoryView(db, project).proposals[0]?.content, 'edited text');
 }));

@@ -42,7 +42,7 @@ function context(workspace: string, tempDir: string): ToolContext {
   };
 }
 
-test('工作区档：pwsh 可见，且在沙箱目录里能写', async () => {
+test('工作区档：pwsh 可见，工作目录就是工作区，绝对路径写沙箱目录能成功', async () => {
   const { root, workspace, tempDir } = makeWorkspace();
   const registry = createDefaultRegistry();
 
@@ -50,10 +50,15 @@ test('工作区档：pwsh 可见，且在沙箱目录里能写', async () => {
     const visible = registry.toProviderTools('workspace').map((tool) => tool.name);
     assert.ok(visible.includes('pwsh'), `工作区档看不到 pwsh：${visible.join(',')}`);
 
-    // ★ 沙箱目录由工具自己建在会话临时目录下；模型必须先写进它
+    /**
+     * ★ 2026-11-11 审计 `ALK-HIGH-02` 之后的新契约：**工作目录是真实工作区**，
+     *   不再是那个空的 `tempDir/shell-sandbox`（旧行为让所有相对路径都落到空目录里）。
+     *   写仍然只在沙箱目录里能成功（Low 完整性写不动 Medium 的工作区）。
+     */
+    const sandboxFile = join(tempDir, 'shell-sandbox', 'probe.txt');
     const result = await registry.execute(
       'pwsh',
-      { command: `Set-Content -LiteralPath 'probe.txt' -Value 'hello' -Encoding UTF8; Get-Content -LiteralPath 'probe.txt'` },
+      { command: `(Get-Location).Path; Set-Content -LiteralPath '${sandboxFile.replaceAll("'", "''")}' -Value 'hello' -Encoding UTF8; Get-Content -LiteralPath '${sandboxFile.replaceAll("'", "''")}'` },
       context(workspace, tempDir),
     );
 
@@ -61,8 +66,13 @@ test('工作区档：pwsh 可见，且在沙箱目录里能写', async () => {
     if (result.ok) {
       assert.match(result.content, /hello/, `沙箱内写入应成功：${result.content.slice(0, 300)}`);
       assert.match(result.content, /\[沙箱\]/, '结果里必须告诉模型沙箱目录在哪');
+      // ★ 新契约：第一条输出就是真实工作区路径（证明 Set-Location 生效）
+      assert.ok(
+        result.content.toLowerCase().includes(workspace.toLowerCase()),
+        `工作目录应当是工作区：${result.content.slice(0, 300)}`,
+      );
     }
-    assert.equal(existsSync(join(tempDir, 'shell-sandbox', 'probe.txt')), true);
+    assert.equal(existsSync(sandboxFile), true);
   } finally {
     rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }

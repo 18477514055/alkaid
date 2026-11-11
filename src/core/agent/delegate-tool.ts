@@ -12,7 +12,8 @@ import { getConversation, getProvider } from '../store/repo.ts';
 import { getSecret } from '../secrets.ts';
 import { createProviderFromRow } from '../model/factory.ts';
 import { delegateModelKey } from '../../shared/settings.ts';
-import type { ToolDefinition } from '../tools/types.ts';
+import { getGeneralSettings } from '../settings/service.ts';
+import type { ToolDefinition, ToolRegistry } from '../tools/types.ts';
 
 /**
  * **`delegate` 工具** —— 模型侧唯一的委派入口（spawn 模式）。
@@ -59,6 +60,15 @@ export type DelegateOptions = {
    * ★ 与 `allowedModels` 是两个独立的旋钮：见 `shared/settings.ts` 的组合判据表。
    */
   readonly allowParentModel?: boolean;
+  /**
+   * ★ 工具注册表 **getter**（2026-11-11 审计 `CRITICAL-02`）。
+   *
+   * 为什么是 getter 而不是直接给注册表：`delegate` 这个工具本身是在
+   * `createDefaultRegistry` 里被注册进去的 —— 构造它的时候注册表还没建完，
+   * 直接传会拿到 undefined（或者要先造一个空壳再往里塞，更难读）。
+   * 闭包到变量上、调用时再取，就绕开了这个先有鸡还是先有蛋。
+   */
+  readonly getTools?: () => ToolRegistry;
   /** 测试替换点：真实实现是 `runTurn` */
   readonly runner?: (input: {
     readonly db: DatabaseSync;
@@ -68,6 +78,15 @@ export type DelegateOptions = {
     readonly signal: AbortSignal;
     readonly maxSteps: number;
     readonly agentRole: 'subagent';
+    /** 子代理要用的工具面（与主对话同一个注册表，`createSurface` 会按 subagent 过滤） */
+    readonly tools?: ToolRegistry;
+    readonly workspacePath?: string | null;
+    readonly projectSharedDir?: string | null;
+    readonly tempDir?: string;
+    /** 思考字段形状（跟随所选连接）——漏传会让上游 400 或把 reasoning 当正文 */
+    readonly thinkingShape?: string | null;
+    /** 工具输出截断上限（跟随主对话的设置）——漏传会退回默认值，与用户设置不一致 */
+    readonly maxToolOutputChars?: number | null;
   }) => AsyncGenerator<TurnEvent>;
 };
 
@@ -207,9 +226,33 @@ export function createDelegateTool(db: DatabaseSync, options: DelegateOptions = 
           hint: '不要重试；先看已有子代理的结论，再决定要不要继续派。',
         };
       }
-      const perTurn = listDelegations(db, ctx.conversationId).length;
-      void perTurn;
-      void DELEGATE_MAX_PER_TURN;
+      /**
+       * ★ 单轮扇出上限（2026-11-11 审计 `HIGH-04` 修的）。
+       *
+       * 原来这里是 `const perTurn = listDelegations(...).length; void perTurn; void DELEGATE_MAX_PER_TURN;`
+       * —— 常量被 `void` 掉，等于**这条限制从未生效**（模型可以一轮里无限串行地派）。
+       *
+       * 判据必须是**这一轮**派了几个，而不是"历史上派过几个"：
+       * 用 `ctx.turnUserSeq` 找到本轮那条 user 消息的时刻，只数它之后建的委派。
+       * 拿不到 seq（理论上不该发生）就退化成"最近一分钟"，宁可多放行也不要误伤正常委派。
+       */
+      const turnStart = (() => {
+        if (ctx.turnUserSeq === undefined) return new Date(Date.now() - 60_000).toISOString();
+        const row = db.prepare('SELECT created_at FROM messages WHERE conversation_id = ? AND seq = ?')
+          .get(ctx.conversationId, ctx.turnUserSeq) as { created_at?: string } | undefined;
+        return row?.created_at ?? new Date(Date.now() - 60_000).toISOString();
+      })();
+      const perTurn = (db.prepare(
+        'SELECT COUNT(*) AS n FROM delegations WHERE parent_conversation_id = ? AND created_at >= ?',
+      ).get(ctx.conversationId, turnStart) as { n: number }).n;
+      if (perTurn >= DELEGATE_MAX_PER_TURN) {
+        return {
+          ok: false,
+          code: 'delegate_limit',
+          message: `这一轮已经派了 ${String(perTurn)} 个子代理，达到上限 ${String(DELEGATE_MAX_PER_TURN)}。`,
+          hint: '把剩下的事合并成更少的委派，或等这一轮结束后再派。',
+        };
+      }
 
       const conversation = getConversation(db, ctx.conversationId);
       if (conversation === undefined) {
@@ -229,7 +272,17 @@ export function createDelegateTool(db: DatabaseSync, options: DelegateOptions = 
       let childModel = conversation.model;
       if (wantProvider.length > 0 && wantModel.length > 0) {
         const key = delegateModelKey(wantProvider, wantModel);
-        const allow = options.allowedModels ?? null;
+        /**
+         * ★ 2026-11-11 审计 `HIGH-02` 修的：**调用时**才去读设置。
+         *
+         * 原来只认构造时传进来的 `options.allowedModels`，而 `main.ts` 压根没传
+         * ⇒ 生产环境的白名单永远是"不限制"，且运行期改了设置也不生效（闭包是旧的）。
+         * 现在：显式传入（测试覆盖三态用）> 库里的全局设置 > 不限制。
+         */
+        const liveGeneral = options.allowedModels === undefined ? getGeneralSettings(db) : null;
+        const allow = options.allowedModels !== undefined
+          ? options.allowedModels
+          : liveGeneral?.delegateAllowedModels ?? null;
         /**
          * 白名单三态：
          * - `null` ⇒ 不限制（默认）
@@ -247,7 +300,11 @@ export function createDelegateTool(db: DatabaseSync, options: DelegateOptions = 
            * 他要的就是"连我自己也不给"，那必须照办。
            */
           const sameAsParent = wantProvider === conversation.providerId && wantModel === conversation.model;
-          const parentExempt = (options.allowParentModel ?? true) && sameAsParent;
+          // ★ 同理（HIGH-02）：没显式传就**当场**读设置，而不是沿用构造时的快照
+          const allowParentModel = options.allowParentModel
+            ?? liveGeneral?.delegateAllowParentModel
+            ?? true;
+          const parentExempt = allowParentModel && sameAsParent;
           if (!parentExempt && !allow.includes(key)) {
             return {
               ok: false,
@@ -341,6 +398,30 @@ export function createDelegateTool(db: DatabaseSync, options: DelegateOptions = 
           signal: ctx.signal,
           maxSteps,
           agentRole: 'subagent',
+          /**
+           * ★★ 2026-11-11 审计 `CRITICAL-02`：这四样**必须**一起传下去。
+           *
+           * `runTurn` 不会自己去库里反查工作区/项目目录，也不自己建工具面 —— 它只认 `options`。
+           * 原来这里只传了 db/conversationId/userText/provider/signal/maxSteps，
+           * 结果**生产环境里的子代理是一个没有任何工具、没有任何目录的裸聊机器人**
+           * （`surface === undefined` ⇒ `providerTools = []` ⇒ 系统提示里写着"当前可调用工具：无"）。
+           *
+           * 为什么单元测试没抓到：它们全都注入了假 `runner`，或者只断言"没继承父历史"，
+           * 没有一条用真实注册表跑过子代理能不能调 `read`。
+           */
+          tools: options.getTools?.(),
+          workspacePath: ctx.workspacePath,
+          projectSharedDir: ctx.projectSharedDir,
+          tempDir: ctx.tempDir,
+          /**
+           * ★ 这两项漏了会有真实后果（2026-11-11 审计 `ALK-HIGH-03`）：
+           * - `thinkingShape`：子代理拿不到父连接声明的思考字段形状 ⇒ 上游可能 400 或把
+           *   reasoning 当正文回显；
+           * - `maxToolOutputChars`：子代理会退回默认上限，与用户在设置里调的值不一致 ——
+           *   同样的命令在主对话里被截断、在子代理里不截断，排查时非常误导。
+           */
+          thinkingShape: providerRow.thinkingShape,
+          maxToolOutputChars: ctx.maxToolOutputChars,
         })) {
           events.push(event);
         }

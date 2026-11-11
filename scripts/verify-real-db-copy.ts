@@ -8,7 +8,7 @@
  *   "夹具太干净，真实数据一跑就露"。
  */
 import { copyFileSync, mkdtempSync, rmSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 

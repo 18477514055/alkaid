@@ -20,7 +20,7 @@ async function fixture(t: TestContext) {
   const peer = insertConversation(db, { projectId: 'execution-http', providerId: p.id, model: 'offline' }).id;
   const foreign = insertConversation(db, { projectId: 'execution-other', providerId: p.id, model: 'offline' }).id;
   const home = join(tmpdir(), `unused-execution-http-${randomUUID()}`);
-  const app = buildServer({ db, config: loadConfig({ ALKAID_HOME: home }) });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db, config: loadConfig({ ALKAID_HOME: home }) });
   const origin = await app.listen({ port: 0, host: '127.0.0.1' });
   t.after(async () => { await app.close(); db.close(); });
   const url = `/api/projects/execution-http/execution/${a}`;

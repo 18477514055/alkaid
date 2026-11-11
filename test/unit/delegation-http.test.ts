@@ -27,7 +27,7 @@ async function withServer(run: (ctx: { app: ReturnType<typeof buildServer>; db: 
   const config = loadConfig({ ALKAID_HOME: home } as NodeJS.ProcessEnv);
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
   try {
     await run({ app, db });
   } finally {

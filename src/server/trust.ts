@@ -1,44 +1,49 @@
 /**
- * **浏览器信任围栏**（B1 / `D7@L358`）。
- *
- * ## ★ 为什么这是硬前提，不是"以后上云再说"
- *
- * Alkaid 有一个**代理能力**：它替你带着真实 API Key 去调上游模型（`core/model/openai.ts`
- * 出站 `Authorization: Bearer <provider key>`）。而这个 HTTP 面的监听地址来自
- * `config.host`（`ALKAID_HOST` 一行环境变量），`app/src/main.ts` 直接拿它去 `listen`。
- *
- * 报告 `D7@L341` 的判语是「**无入站鉴权**：全仓无 `requireAuth`/`preHandler`」——
- * 也就是说：**只要有人把 `ALKAID_HOST` 写成 `0.0.0.0`，整个局域网就能用你的 Key
- * 免费调模型、读你的全部会话与记忆，还能改你的文件**（shell/fs 工具在 full 档下是真实权限）。
- *
- * 这不是理论风险：`0.0.0.0` 是很多人"想用手机访问一下"时的第一反应。
- *
- * ## ★★ 两道判据（缺一条都能被绕过）
- *
- * 1. **`Host` 头必须落在允许集合里** —— 防 **DNS rebinding**：
- *    攻击者把自己的域名解析到 `127.0.0.1`，再从浏览器里访问 `http://evil.example:8787`，
- *    此时 `Origin` 是同源（`evil.example`），浏览器会照发请求。只有校验 `Host`
- *    才能识破（`Host` 会是 `evil.example:8787`，而不是我们绑定的地址）。
- * 2. **`Origin` 必须同源** —— 防**跨站请求伪造**：别的网站用 `fetch` 打我们的 API 时，
- *    浏览器会带上 `Origin: https://evil.example`。
- *    ★ 没有 `Origin` 的要**放行**：CLI / curl / 桌面端壳 / 同源导航都可能不带它，
- *    一刀切拒绝会让 `npm run gate` 的夹具、`app.inject()` 测试和 Electron 全挂。
- *    （判断依据：带 Origin 的只有**浏览器发起的跨源请求**与部分表单提交；
- *      不带 Origin 的请求没法被"任意网站"利用 —— 那正是 CSRF 的必要条件。）
- *
- * ## ★ 为什么默认全放行、只在非 loopback 绑定时才硬起来
- *
- * 判据是**"是不是被别人碰得到"**：
- * - 绑 `127.0.0.1` / `::1` ⇒ 只有本机能连，浏览器跨源请求的危害面限于"本机上别的网页"
- *   —— 但那时 `Host` 判据仍然有意义（DNS rebinding 就是在 loopback 上做文章）。
- * - 绑 `0.0.0.0` / 具体网卡 IP ⇒ **整个网段都能连** ⇒ 必须同时校验 `Host` 与 `Origin`，
- *   且 `Host` 只认"绑定的地址 + 显式白名单"。
- *
- * ⇒ 校验强度由 `config.host` 推导，不需要用户再学一个开关。**默认（loopback）不误伤，
- *   一旦放开监听就自动收紧** —— 这是"安全的默认值应该跟着危险程度走"。
+ * Browser Host/Origin fence plus local bearer authorization.
+ * Host allowlisting prevents DNS rebinding; the original Origin checks stay in force.
+ * Every non-GET/HEAD/OPTIONS request additionally needs the local header/cookie,
+ * except the exact POST pairing endpoint, whose one-time code proves possession.
+ * Public reads never mint cookies. Fetch Metadata/Origin alone are not authentication.
+ * Scope: restricted Low processes, NOT isolation from a same-user full shell/admin.
  */
 
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
+
+export const LOCAL_AUTH_COOKIE = 'alkaid_local';
+
+export type LocalAuthHeaders = {
+  readonly 'x-alkaid-token'?: string | undefined;
+  readonly cookie?: string | undefined;
+};
+
+/** Hash both inputs to fixed-size buffers before the constant-time comparison. */
+function tokenEquals(candidate: string, expected: string): boolean {
+  return timingSafeEqual(
+    createHash('sha256').update(candidate).digest(),
+    createHash('sha256').update(expected).digest(),
+  );
+}
+
+/** Header or HttpOnly cookie proves possession; Fetch Metadata is never authentication.
+ * This boundary protects restricted Low tools, not a same-user full shell/administrator.
+ */
+export function requestAuthenticated(headers: LocalAuthHeaders, localToken: string | null): boolean {
+  if (localToken === null) return true;
+  const cookies = (headers.cookie ?? '').split(';').map(part => part.trim());
+  const values = cookies.filter(part => part.slice(0, part.indexOf('=')) === LOCAL_AUTH_COOKIE)
+    .map(part => part.slice(part.indexOf('=') + 1));
+  // Ambiguous duplicate cookies fail closed rather than relying on first/last parser order.
+  const headerMatches = tokenEquals(headers['x-alkaid-token'] ?? '', localToken);
+  const cookieMatches = tokenEquals(values.length === 1 ? values[0]! : '', localToken);
+  return headerMatches || cookieMatches;
+}
+
+export type RequestLocalAuth = {
+  readonly localToken: string | null;
+  /** Only POST /api/auth/pair may bootstrap, after the original Host/Origin checks. */
+  readonly pairingBootstrap?: boolean;
+};
 
 /** 永远算作"本机"的主机名 */
 const LOOPBACK_NAMES = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
@@ -69,6 +74,18 @@ export type TrustPolicy = {
   readonly allowedHosts: ReadonlySet<string>;
   /** 绑的是本机 ⇒ 只校验 `Host`；绑的是对外地址 ⇒ 还要求 `Origin` 同源 */
   readonly requireOrigin: boolean;
+  /**
+   * ★ 对外监听时，**写操作（非 GET/HEAD/OPTIONS）必须带 Origin**（2026-11-11 审计 `ALK-CRIT-01`）。
+   *
+   * 原判据是"没有 Origin 就放行"，理由是 CLI/curl/桌面壳/同源导航都不带它。
+   * 但绑 `0.0.0.0` 时这条等于把 `requireOrigin` 作废：局域网里任何人都能不带 Origin
+   * 直接 `curl -X POST` 打 API（改设置、发消息、删会话）。
+   *
+   * 现在的判据分两半：
+   * - **读请求**（GET/HEAD/OPTIONS）没有副作用 ⇒ 仍然放行（curl 看健康、桌面壳轮询都不受影响）；
+   * - **写请求**在对外监听时必须带 Origin 且同源；回环仅不要求 Origin，仍必须通过独立令牌层。
+   */
+  readonly requireOriginForWrites: boolean;
   /** 给出人类可读的策略描述（写进 `/api/healthz`，别让接手的人靠猜） */
   readonly description: string;
 };
@@ -108,7 +125,7 @@ export function trustPolicyFor(bindHost: string, extraHosts: readonly string[] =
         allowed.size > 0 ? [...allowed].join(', ') : '（无）'
       }）`;
 
-  return { allowedHosts: allowed, requireOrigin, description };
+  return { allowedHosts: allowed, requireOrigin, requireOriginForWrites: requireOrigin, description };
 }
 
 export type TrustVerdict = { readonly ok: true } | { readonly ok: false; readonly reason: string };
@@ -116,14 +133,24 @@ export type TrustVerdict = { readonly ok: true } | { readonly ok: false; readonl
 /**
  * 判一条请求是否可信。
  *
- * @param headers 只取用得到的两个头（大小写不敏感由调用方保证）
+ * @param headers Host/Origin plus bearer header/cookie（头名归一化由调用方保证）
  */
 export function checkRequestTrust(
   policy: TrustPolicy,
-  headers: { readonly host?: string | undefined; readonly origin?: string | undefined },
+  headers: { readonly host?: string | undefined; readonly origin?: string | undefined } & LocalAuthHeaders,
   /** 实际监听的端口，用来把 `Origin` 归一成"同源"（`null` = 不校验端口） */
   listenPort: number | null = null,
+  /** HTTP 方法。只有它才能区分"读"与"写"——见 `requireOriginForWrites` */
+  method: string = 'GET',
+  auth: RequestLocalAuth = { localToken: null },
 ): TrustVerdict {
+  const safeMethod = ['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
+  const checkLocalAuth = (): TrustVerdict => {
+    if (!safeMethod && !auth.pairingBootstrap && !requestAuthenticated(headers, auth.localToken)) {
+      return { ok: false, reason: '本机授权凭据缺失或无效；请先完成一次性配对。' };
+    }
+    return { ok: true };
+  };
   // ① Host 必须命中允许集合 —— 这一条防 DNS rebinding，**任何绑定模式下都要查**
   const rawHost = headers.host?.trim() ?? '';
   if (rawHost.length === 0) {
@@ -140,8 +167,22 @@ export function checkRequestTrust(
   // ② 对外监听时，Origin 也必须同源
   const rawOrigin = headers.origin?.trim();
   if (rawOrigin === undefined || rawOrigin.length === 0) {
-    // ★ 无 Origin 放行：CLI/curl/桌面壳/同源导航都不带它（见文件头判据 2）
-    return { ok: true };
+    /**
+     * ★ 没有 Origin 时**不再一律放行**（2026-11-11 审计 `ALK-CRIT-01`）：
+     *   读请求放行（CLI/curl/桌面壳/同源导航本来就不带它，且没有副作用）；
+     *   写请求在**对外监听**时一律拒绝 —— 否则绑 0.0.0.0 就等于把整个 API 交给局域网。
+     *   回环仅跳过这一层 Origin 要求（`requireOriginForWrites` 为 false）；随后仍检查本机令牌。
+     */
+    const methodVerb = method.toUpperCase();
+    if (!safeMethod && policy.requireOriginForWrites) {
+      return {
+        ok: false,
+        reason:
+          `对外监听时，写操作（${methodVerb}）必须带 Origin 请求头并同源。` +
+          '浏览器会自动带上；命令行请改用本机回环地址（127.0.0.1），或把来源主机加进 ALKAID_TRUSTED_HOSTS。',
+      };
+    }
+    return checkLocalAuth();
   }
 
   let parsed: URL;
@@ -169,11 +210,11 @@ export function checkRequestTrust(
   }
 
   if (!policy.requireOrigin) {
-    // 本机绑定时只额外核对协议，不强制端口（开发时 vite 反代会换端口）
+    // 回环来源也必须使用 HTTP(S)；端口已在上面按实际监听端口校验。
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return { ok: false, reason: `Origin 的协议 "${parsed.protocol}" 不受支持` };
     }
   }
 
-  return { ok: true };
+  return checkLocalAuth();
 }

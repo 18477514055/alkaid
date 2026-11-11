@@ -187,7 +187,7 @@ try {
   const b = insertConversation(db, { projectId: project.id, providerId: provider.id, model: 'local-execution-experience', permissionMode: 'readonly', title: '主对话 B · 独立空执行板' });
   const child = insertConversation(db, { projectId: project.id, providerId: provider.id, model: 'local-execution-experience', agentRole: 'subagent', permissionMode: 'readonly', title: '子智能体 · 无项目执行板权限' });
   const foreignConv = insertConversation(db, { projectId: foreign.id, providerId: provider.id, model: 'local-execution-experience', title: '隔离项目对话' });
-  app = buildServer({ db, config }); await app.register(fastifyStatic, { root: resolve('dist/web'), prefix: '/' });
+  app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db, config }); await app.register(fastifyStatic, { root: resolve('dist/web'), prefix: '/' });
   app.get('/__verify/status', async () => ({ ...counters, projectId: project.id, foreignProjectId: foreign.id, conversations: { a: a.id, b: b.id, child: child.id, foreign: foreignConv.id }, fixtureOnly: true }));
   app.post('/__verify/stop', async () => { setTimeout(() => { void close().catch(() => { process.exitCode = 1; console.error('execution_fixture_shutdown_failed'); }); }, 50); return { stopping: true }; });
   url = await app.listen({ host: '127.0.0.1', port: 0 });

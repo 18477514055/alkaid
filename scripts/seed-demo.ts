@@ -184,7 +184,7 @@ const CONVERSATIONS: readonly ConversationSeed[] = [
   {
     key: 'main',
     title: '多模态讲解复现所需环境',
-    workspace: '99-Alkaid',
+    workspace: 'demo-workspace',
     project: 'alkaid',
     permissionMode: 'workspace_project',
     minutesAgo: 12,
@@ -261,7 +261,7 @@ const CONVERSATIONS: readonly ConversationSeed[] = [
   {
     key: 'sandbox',
     title: '工具库与沙盒方案调研',
-    workspace: '99-Alkaid',
+    workspace: 'demo-workspace',
     project: 'alkaid',
     permissionMode: 'readonly',
     minutesAgo: 68,
@@ -410,7 +410,7 @@ D:\work\chat-mobile\resources\system`,
   {
     key: 'v03',
     title: 'V0.3 方向讨论',
-    workspace: '99-Alkaid',
+    workspace: 'demo-workspace',
     project: 'alkaid',
     permissionMode: 'project',
     minutesAgo: 920,

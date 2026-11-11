@@ -7,7 +7,7 @@
  * ③ 迁移**幂等**：再跑一次还是 16，不重复写迁移记录。
  */
 import { copyFileSync, mkdtempSync, rmSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 

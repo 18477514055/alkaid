@@ -13,6 +13,16 @@ import { applyProposalManually,getMemoryView,rejectProposal,submitProposal } fro
 import { readObligation } from '../../src/core/memory/obligations.ts';
 import type { ChatEvent,ChatRequest } from '../../src/shared/types.ts';
 import type { Provider } from '../../src/core/model/provider.ts';
+
+/**
+ * 子代理**禁止**使用的项目记忆工具（写语义）。
+ * ★ 2026-11-11 审计 `CRITICAL-01` 之后，判据从"整族 memory_* + execution_board 全禁"
+ *   改成"只禁写"：读工具（`memory_read` / `memory_records` / `memory_material_map`）与
+ *   `execution_board`（只写自己那一行）按用户裁定对子代理放行。
+ */
+const SUBAGENT_WRITE_TOOLS: readonly string[] = [
+  'memory_propose', 'memory_stage', 'memory_disposition',
+];
 function fixture(t:TestContext,window=1_000_000) {
  const db=new DatabaseSync(':memory:');migrate(db);t.after(()=>db.close());
  insertProject(db,{id:'p',name:'P',sharedDir:'C:/owned/p'});
@@ -76,9 +86,13 @@ test('rhythm: runtime and persisted subagents have no project injection, tool de
  const child=insertConversation(f.db,{providerId:f.p.id,model:'fake',projectId:'p',agentRole:'subagent'});
  await f.run('委派任务',undefined,child.id);await f.run('委派任务',undefined,f.a.id,'subagent');
  assert.equal(f.requests.length,2);
- for(const r of f.requests){assert.doesNotMatch(r.messages[0]!.content!,/项目记忆（当前正式版本）|台账整理间隔|项目收尾义务/);assert.ok(r.tools?.every(tool=>tool.name!=='execution_board'&&!tool.name.startsWith('memory_')));assert.doesNotMatch(JSON.stringify(r.tools),/memory_propose/);}
+ for(const r of f.requests){assert.doesNotMatch(r.messages[0]!.content!,/项目记忆（当前正式版本）|台账整理间隔|项目收尾义务/);assert.ok(r.tools?.every(tool=>!SUBAGENT_WRITE_TOOLS.includes(tool.name)));}
  for(const table of ['memory_obligations','memory_rhythm_checkpoints','memory_waterlines','memory_file_touches'])assert.equal(f.db.prepare(`SELECT count(*) AS n FROM ${table}`).get()?.['n'],0);
- const surface=createSurface(f.tools,'readonly',new Map(),'subagent');assert.equal(surface.canCall('execution_board'),false);
+ const surface=createSurface(f.tools,'readonly',new Map(),'subagent');
+ // ★ 看板对子代理**可见**（它只能写自己那一行）；写台账的工具仍然不可见
+ assert.equal(surface.canCall('execution_board'),true);
+ assert.equal(surface.canCall('memory_propose'),false);
+ assert.equal(surface.canCall('memory_stage'),false);
  const ctx={conversationId:child.id,permissionMode:'readonly' as const,roots:{readable:[],writable:[],anywhere:false},workspacePath:null,projectSharedDir:null,cwd:'.',tempDir:'.',signal:new AbortController().signal};
  assert.equal((await f.tools.execute('memory_stage',{action:'principle_propose',payload:{}},ctx)).ok,false);
  assert.equal(buildConversationPrompt(f.db,child.id,f.tools).state.rhythm,undefined);
@@ -121,7 +135,7 @@ test('rhythm: runtime child on a main ID cannot inherit old maintenance replies 
  assert.deepEqual(request.messages.filter(message=>message.role==='user').map(message=>message.content),[delegatedTask]);
  assert.equal(request.messages.length,2,'only the system and current delegated user input, not main history');
  assert.equal(request.messages.flatMap(message=>message.toolCalls??[]).length,0);
- assert.ok(request.tools?.every(tool=>!tool.name.startsWith('memory_')&&tool.name!=='execution_board'));
+ assert.ok(request.tools?.every(tool=>!SUBAGENT_WRITE_TOOLS.includes(tool.name)));
  assert.ok(listMessages(f.db,f.a.id).some(message=>message.role==='tool'&&message.content?.includes(maintenanceSentinel)),'source history must remain intact');
  assert.equal(f.db.prepare('SELECT summary FROM compactions WHERE conversation_id=?').get(f.a.id)?.['summary'],summarySentinel);
  const child=insertConversation(f.db,{providerId:f.p.id,model:'fake',projectId:'p',agentRole:'subagent'});

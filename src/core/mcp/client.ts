@@ -1,7 +1,42 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
 
 import type { McpTransport } from '../../shared/mcp.ts';
+
+/**
+ * 结束一个 MCP stdio 子进程，**连同它的整棵进程树**（审计 `ALK-MED-09`）。
+ *
+ * 为什么不能只 `child.kill()`：典型配置是 `npx @scope/server` 或 `node launcher.js`，
+ * 真正干活的进程是**孙子**。父进程一死，孙子变孤儿，继续占端口/内存/句柄；
+ * 用户反复「重新连接」就会积一堆看不见的 node 进程。
+ *
+ * Windows 用 `taskkill /T /F`（`/T` = 树，`/F` = 强制）；POSIX 上退回"负 pid 杀进程组"，
+ * 失败再退回普通 kill —— 三步都失败就算了，不能因为清理失败影响主流程。
+ */
+function killTree(child: ChildProcess): void {
+  const pid = child.pid;
+  if (pid === undefined) return;
+  if (process.platform === 'win32') {
+    try {
+      execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
+      return;
+    } catch {
+      /* 进程可能已经退出，退回普通 kill */
+    }
+  } else {
+    try {
+      process.kill(-pid, 'SIGKILL');
+      return;
+    } catch {
+      /* 不是进程组组长时会抛，退回普通 kill */
+    }
+  }
+  try {
+    child.kill('SIGKILL');
+  } catch {
+    /* 已经死了 */
+  }
+}
 
 /**
  * MCP 协议客户端（**零新依赖**，只用 `child_process` 与 `fetch`）。
@@ -38,6 +73,8 @@ const MAX_TOOL_PAGES = 20;
 
 /** stderr 只留尾部这么多字符（用于退出原因），再多就是噪声。 */
 const STDERR_TAIL_CHARS = 2_000;
+/** stdout 单帧上限（审计 `ALK-MED-09`）：正常帧远小于它，超过说明对端坏了 */
+const MAX_STDOUT_BUFFER_CHARS = 32 * 1024 * 1024;
 
 export type McpToolInfo = {
   /** 服务器声明的**原始**工具名（未清洗；注册进注册表时才加前缀并清洗） */
@@ -372,6 +409,19 @@ class StdioConnection extends BaseConnection {
 
     this.#child.stdout?.on('data', (chunk: Buffer) => {
       this.#buffer += decoder.write(chunk);
+      /**
+       * ★★ 2026-11-11 审计 `ALK-MED-09`（第二半）：**单行缓冲必须有上限**。
+       *
+       * `#buffer` 只在遇到换行时被消费。一个吐了 200MB 却**没有换行**的服务器
+       * （或一个把整个文件当作"一行"发出来的实现）会让这个字符串一路涨到把进程撑死 ——
+       * 而它来自**我们对端**的行为，不是我们能控制的。
+       * 上限取 32MB：正常 MCP 帧远小于它，超过就说明对端坏了，报错比 OOM 好。
+       */
+      if (this.#buffer.length > MAX_STDOUT_BUFFER_CHARS) {
+        this.#buffer = '';
+        this.#fail(`MCP 服务器输出的单帧超过上限（${String(MAX_STDOUT_BUFFER_CHARS)} 字符），已断开`);
+        return;
+      }
       this.#drain();
     });
     this.#child.stderr?.on('data', (chunk: Buffer) => {
@@ -433,11 +483,7 @@ class StdioConnection extends BaseConnection {
 
     await new Promise<void>((resolveClose) => {
       const timer = setTimeout(() => {
-        try {
-          child.kill('SIGKILL');
-        } catch {
-          /* 已经死了 */
-        }
+        killTree(child);
         resolveClose();
       }, 1_000);
 
@@ -448,7 +494,15 @@ class StdioConnection extends BaseConnection {
 
       try {
         child.stdin?.end();
-        child.kill();
+        /**
+         * ★★ 2026-11-11 审计 `ALK-MED-09`：**连进程树一起杀**。
+         *
+         * `child.kill()` 只结束**直接子进程**。而 MCP 的典型配置是 `npx @scope/server`
+         * 或 `node launcher.js` —— 真正干活的进程是**孙子**。父进程死了它变成孤儿，
+         * 继续占着端口、内存与句柄；反复重连就积一堆。
+         * Windows 上用 `taskkill /T /F`（`/T` = 整棵树），其它平台退回到杀进程组。
+         */
+        killTree(child);
       } catch {
         clearTimeout(timer);
         resolveClose();
@@ -533,11 +587,7 @@ class StdioConnection extends BaseConnection {
     const reason = redactSecrets(rawReason, this.secrets);
     this.markClosed(reason);
     this.#rejectAll(reason);
-    try {
-      this.#child.kill();
-    } catch {
-      /* 已经死了 */
-    }
+    killTree(this.#child);
   }
 }
 

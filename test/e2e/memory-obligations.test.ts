@@ -21,7 +21,7 @@ async function fixture(t: TestContext) {
   const a = insertConversation(db, { projectId: 'ob-http', providerId: p.id, model: 'offline' }).id;
   const b = insertConversation(db, { projectId: 'ob-http', providerId: p.id, model: 'offline' }).id;
   const foreign = insertConversation(db, { projectId: 'ob-http-other', providerId: p.id, model: 'offline' }).id;
-  const app = buildServer({ db, config: loadConfig({ ALKAID_HOME: join(tmpdir(), `unused-ob-http-${randomUUID()}`) }) });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db, config: loadConfig({ ALKAID_HOME: join(tmpdir(), `unused-ob-http-${randomUUID()}`) }) });
   const origin = await app.listen({ host: '127.0.0.1', port: 0 });
   t.after(async () => { await app.close(); db.close(); });
   const base = '/api/projects/ob-http/memory/obligations';

@@ -64,6 +64,12 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ServerDeps): v
   app.delete('/api/projects/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const query = request.query as { deleteFiles?: string };
+    /**
+     * ★ 先停这个项目的维护调度，再删数据（2026-11-11 审计 `P2-②` / `ALK-MED-08`）。
+     * 否则定时器还挂着：下一次触发会拿一个已经不存在的项目去拼快照，
+     * 轻则白跑一次付费请求，重则把维护任务卡成 `running` 让后续合并永久阻塞。
+     */
+    await deps.memory.stopProject(id);
     const result = deleteProject(deps.db, deps.config, id, { deleteFiles: query.deleteFiles === '1' });
     if (result === undefined) return reply.code(404).send({ error: '项目不存在' });
     deps.plugins?.broadcast('project.updated', { projectId: id });

@@ -26,7 +26,7 @@ function withServer<T>(fn: (ctx: { app: ReturnType<typeof buildServer>; db: Retu
   ensureHome(config);
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
   return fn({ app, db, home }).finally(() => {
     void app.close();
     db.close();
@@ -37,7 +37,7 @@ function withServer<T>(fn: (ctx: { app: ReturnType<typeof buildServer>; db: Retu
 // ───────────────── ① 置顶 / 归档 ─────────────────
 
 test('置顶排在最前，归档默认不出现、显式请求才出现', () => {
-  withServer(async ({ app, db }) => {
+ withServer(async ({ app, db }) => {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://x/v1' });
     const a = insertConversation(db, { providerId: provider.id, model: 'm', title: 'A' });
     const b = insertConversation(db, { providerId: provider.id, model: 'm', title: 'B' });
@@ -81,7 +81,7 @@ test('置顶排在最前，归档默认不出现、显式请求才出现', () =>
 });
 
 test('PATCH 置顶/归档收的是时刻，null 与空串都表示取消，非法值 400', () => {
-  withServer(async ({ app, db }) => {
+ withServer(async ({ app, db }) => {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://x/v1' });
     const conv = insertConversation(db, { providerId: provider.id, model: 'm' });
 
@@ -140,7 +140,7 @@ test('思考强度映射：五种 provider 形状各发各的字段，off 不假
 });
 
 test('PATCH 只接受白名单里的思考强度', () => {
-  withServer(async ({ app, db }) => {
+ withServer(async ({ app, db }) => {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://x/v1' });
     const conv = insertConversation(db, { providerId: provider.id, model: 'm' });
 
@@ -174,7 +174,7 @@ test('PATCH 只接受白名单里的思考强度', () => {
 // ───────────────── ③ 分支 ─────────────────
 
 test('分支只复制对话正文，不搬工具链，且原会话不动', () => {
-  withServer(async ({ app, db }) => {
+ withServer(async ({ app, db }) => {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://x/v1' });
     const source = insertConversation(db, { providerId: provider.id, model: 'm', title: '原会话' });
 
@@ -218,7 +218,7 @@ test('分支只复制对话正文，不搬工具链，且原会话不动', () =>
 });
 
 test('分支：没有可复制内容时 400，源会话不存在时 404', () => {
-  withServer(async ({ app, db }) => {
+ withServer(async ({ app, db }) => {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://x/v1' });
     const empty = insertConversation(db, { providerId: provider.id, model: 'm' });
 
@@ -296,7 +296,7 @@ test('模型失败时用第一句用户消息兜一个标题（不是永远叫�
 });
 
 test('起标题接口：已有非占位标题时不动它，且回 titled:false', () => {
-  withServer(async ({ app, db }) => {
+ withServer(async ({ app, db }) => {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://127.0.0.1:1', contextWindow: 1000 });
     const conv = insertConversation(db, { providerId: provider.id, model: 'm', title: '我自己起的名字' });
     appendMessage(db, { conversationId: conv.id, role: 'user', content: '随便说点什么' });
@@ -312,7 +312,7 @@ test('起标题接口：已有非占位标题时不动它，且回 titled:false'
 });
 
 test('起标题接口：上游连不上时回 200 且 reason=failed（不是用户的错）', () => {
-  withServer(async ({ app, db }) => {
+ withServer(async ({ app, db }) => {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://127.0.0.1:1', contextWindow: 1000 });
     const conv = insertConversation(db, { providerId: provider.id, model: 'm' });
     appendMessage(db, { conversationId: conv.id, role: 'user', content: '帮我看看环境' });

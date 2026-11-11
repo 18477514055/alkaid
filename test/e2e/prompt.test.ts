@@ -163,7 +163,7 @@ test('接口：能查系统提示的分段构成，也能改自定义指令', as
   ensureHome(config);
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 
   try {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://x/v1' });

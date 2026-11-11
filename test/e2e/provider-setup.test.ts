@@ -125,7 +125,7 @@ test('会话头：OpenCode 那类网关要求按对话固定的 x-opencode-sessi
   ensureHome(config);
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 
   try {
     const provider = insertProvider(db, {
@@ -166,7 +166,7 @@ test('HTTP 面：预设目录 / 探针 / 保存后改名改模型 / 删除', asy
   ensureHome(config);
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 
   try {
     const presets = await app.inject({ method: 'GET', url: '/api/providers/presets' });

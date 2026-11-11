@@ -225,7 +225,7 @@ test('PATCH /api/providers/:id 改上下文窗口，非法值被拒', async () =
   ensureHome(config);
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 
   try {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://x/v1' });
@@ -266,7 +266,7 @@ test('usage 明细：逐步列出，且耗时/速度与聚合口径一致', asyn
   ensureHome(config);
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 
   try {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://x/v1' });
@@ -341,7 +341,7 @@ test('dashboard 带出 stats / contextWindow / contextRatio，且 provider 默�
   ensureHome(config);
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 
   try {
     const provider = insertProvider(db, { name: 'p', baseUrl: 'http://x/v1' });

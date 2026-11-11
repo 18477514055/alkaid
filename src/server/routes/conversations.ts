@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { runTurn } from '../../core/agent/loop.ts';
 import { countPendingInputs, queueInput } from '../../core/agent/steering.ts';
+import { applyToolTemplateToConversation, listToolTemplates } from '../../core/tools/gate.ts';
+import { listConversationToolModes, setConversationToolMode } from '../../core/tools/gate.ts';
 import { buildConversationPrompt } from '../../core/agent/prompt/session.ts';
 import { assertPersisted, CompactionError, compactRange, listCompactions } from '../../core/context/compact.ts';
 import { generateConversationTitle, isPlaceholderTitle } from '../../core/context/title.ts';
@@ -99,6 +101,22 @@ export function registerConversationRoutes(app: FastifyInstance, deps: ServerDep
     });
     if (workspaceId !== null) attachWorkspace(deps.db, conversation.id, workspaceId, true);
 
+    /**
+     * ★ 新会话套用「默认工具模板」（2026-11-11 审计 `MEDIUM-02`）。
+     *
+     * v18 的门控里已经有 `tool_templates.is_default`，但**从来没有人在建会话时用它** ——
+     * 于是"设为默认"这个按钮只是个装饰：新开的对话仍是全局设置那一套。
+     * 套用写成**会话覆盖**（不是改全局），所以它只影响这一个新会话，符合"默认"的语义。
+     */
+    const defaultTemplate = listToolTemplates(deps.db).find((template) => template.isDefault);
+    if (defaultTemplate !== undefined) {
+      try {
+        applyToolTemplateToConversation(deps.db, conversation.id, defaultTemplate.id);
+      } catch {
+        // 模板坏掉不该让建会话失败；工具门控是可选项
+      }
+    }
+
     deps.plugins?.broadcast('conversation.created', { conversationId: conversation.id, projectId });
 
     return reply.code(201).send(conversation);
@@ -140,6 +158,19 @@ export function registerConversationRoutes(app: FastifyInstance, deps: ServerDep
     });
     if (source.primaryWorkspaceId !== null) {
       attachWorkspace(deps.db, created.id, source.primaryWorkspaceId, true);
+    }
+
+    /**
+     * ★★ 2026-11-11 审计 `ALK-MED-06`：分支要继承**会话级配置**，不只是 provider/model。
+     * 原来只传了 5 个字段，于是「自定义指令（instructions）」和「这个对话的工具集覆盖」
+     * 在分支里双双丢失 —— 用户看到的是"分出来的对话突然不按我的指令说话了、工具也变多了"。
+     */
+    if (typeof source.instructions === 'string' && source.instructions.length > 0) {
+      updateConversationInstructions(deps.db, created.id, source.instructions);
+    }
+    // 工具门控覆盖：整份复制（它本来就是"这个对话与全局的差异"，复制过去才是同一语义）
+    for (const [name, mode] of listConversationToolModes(deps.db, id)) {
+      setConversationToolMode(deps.db, created.id, name, mode);
     }
 
     for (const message of sourceMessages) {
@@ -219,6 +250,24 @@ export function registerConversationRoutes(app: FastifyInstance, deps: ServerDep
       nextProviderId = target.id;
     } else if (body['providerId'] !== undefined && body['providerId'] !== null) {
       return reply.code(400).send({ error: 'providerId 必须是字符串' });
+    }
+
+    /**
+     * ★★ 2026-11-11 审计 `ALK-MED-05`：**只改 model、不传 providerId** 也必须过白名单。
+     *
+     * 上面那段只在 `providerId` 是字符串时才查 `enabledModels`，于是
+     * `PATCH { model: '随便一个' }`（连接不动）直接把"这连接只允许 N 个模型"绕过去了 ——
+     * 白名单变成"只挡换连接的人"，而换模型才是它真正要挡的事。
+     * 现在用**生效后的连接**（新的或原来的）统一校验一次。
+     */
+    if (typeof body['model'] === 'string' && nextProviderId === undefined) {
+      const effectiveProvider = getProvider(deps.db, current.providerId);
+      if (effectiveProvider !== undefined && effectiveProvider.enabledModels !== null
+        && !effectiveProvider.enabledModels.includes(body['model'])) {
+        return reply.code(400).send({
+          error: `该连接未开放模型「${body['model']}」，请先在连接设置里勾选`,
+        });
+      }
     }
 
     /**

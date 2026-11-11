@@ -21,6 +21,8 @@ type Props = {
   /** 右栏设置：显示哪些页签、默认停在哪个（来自 `app_settings`） */
   visibleTabs?: readonly PanelTab[];
   defaultTab?: PanelTab;
+  /** 右栏设置：高级区块是否默认展开（透传给工作台，审计 `ALK-MED-04`） */
+  advancedOpen?: boolean;
   /** ★ 从委派看板点进子代理对话 / 切回主对话（2026-11-10）。不传 = 不可点。 */
   onOpenConversation?: (conversationId: string) => void;
   onBackToParent?: () => void;
@@ -221,7 +223,7 @@ export function MemoryPanel(props: Props): React.ReactElement {
   );
 }
 
-function ProjectMemory({ projectId, conversationId = null, projectName, providers, conversations = [], refreshKey = 0, visibleTabs, defaultTab, onOpenConversation, onBackToParent }: Props & { projectId: string }): React.ReactElement {
+function ProjectMemory({ projectId, conversationId = null, projectName, providers, conversations = [], refreshKey = 0, visibleTabs, defaultTab, advancedOpen, onOpenConversation, onBackToParent }: Props & { projectId: string }): React.ReactElement {
   const [view, setView] = useState<MemoryView | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [tab, setTab] = useState<'records' | 'proposals' | 'jobs'>('records');
@@ -358,6 +360,7 @@ function ProjectMemory({ projectId, conversationId = null, projectName, provider
       {view !== null && <MemoryWorkbench key={`${projectId}/${conversationId ?? ''}`} view={view} conversationId={conversationId} projectName={projectName}
         conversations={conversations} refreshKey={refreshKey} onChanged={() => setReload((value) => value + 1)}
         visibleTabs={visibleTabs} defaultTab={defaultTab}
+        {...(advancedOpen === undefined ? {} : { advancedOpen })}
         {...(onOpenConversation === undefined ? {} : { onOpenConversation })}
         {...(onBackToParent === undefined ? {} : { onBackToParent })}
         onShowPending={() => setTab('proposals')}>

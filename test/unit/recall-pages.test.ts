@@ -170,7 +170,7 @@ test('recall service and tool repeated reads produce zero SQLite writes and no m
 test('GET recall index and message pages are purely local, preserve source rows and cannot substitute a foreign conversation field', async t => {
   const f = fixture(t); appendMessage(f.db, { conversationId: f.a.id, role: 'user', content: 'HTTP_ORIGINAL_LONG_'.repeat(2000) + 'HTTP_LONG_TAIL' });
   appendMessage(f.db, { conversationId: f.b.id, role: 'user', content: 'FOREIGN_HTTP_PRIVATE' });
-  const config = loadConfig({ ALKAID_HOME: join(tmpdir(), `alkaid-recall-unused-${randomUUID()}`) }); const app = buildServer({ db: f.db, config });
+  const config = loadConfig({ ALKAID_HOME: join(tmpdir(), `alkaid-recall-unused-${randomUUID()}`) }); const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db: f.db, config });
   const fetchMock = t.mock.method(globalThis, 'fetch', async () => { throw new Error('Unexpected network request'); });
   try {
     const beforeRows = JSON.stringify(listMessages(f.db, f.a.id)); const before = Number(f.db.prepare('SELECT total_changes() AS n').get()?.n);

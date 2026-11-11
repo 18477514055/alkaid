@@ -65,7 +65,7 @@ const other = createProject(db, config, { name: '隔离项目 B（不得串读�
 const a = insertConversation(db, { providerId: provider.id, model: 'offline-workbench-model', projectId: project.id, title: '工作台验收 · A', permissionMode: 'project' });
 const b = insertConversation(db, { providerId: provider.id, model: 'offline-workbench-model', projectId: project.id, title: '工作台验收 · B', permissionMode: 'project' });
 insertConversation(db, { providerId: provider.id, model: 'offline-workbench-model', projectId: other.id, title: '项目 B 的对话', permissionMode: 'project' });
-const app = buildServer({ config, db });
+const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 await app.register(fastifyStatic, { root: resolve('dist/web'), prefix: '/' });
 let closing = false;
 async function close() {

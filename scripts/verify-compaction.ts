@@ -181,7 +181,7 @@ try {
   const manual = insertConversation(db, { providerId: provider.id, model: 'offline-compaction-fixture', projectId: project.id, permissionMode: 'readonly', title: '手动缺三项 · 不请求模型' });
   const checkpoint = insertConversation(db, { providerId: provider.id, model: 'offline-compaction-fixture', projectId: project.id, permissionMode: 'readonly', title: '检查点缺项 · 不自动接受' });
   autoConversationId = automatic.id; const longOriginal = seed(automatic.id, true)!; seed(manual.id); seed(checkpoint.id);
-  app = buildServer({ db, config }); await app.register(fastifyStatic, { root: webRoot, prefix: '/' });
+  app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db, config }); await app.register(fastifyStatic, { root: webRoot, prefix: '/' });
   app.get('/__verify/status', async () => ({ fixtureOnly: true, ...counters, projectId: project.id, conversationId: automatic.id, conversations: { automatic: automatic.id, manual: manual.id, checkpoint: checkpoint.id }, longOriginalSeq: longOriginal.seq, fakeFailure }));
   app.post('/__verify/stop', async () => { setTimeout(() => { void close().catch(() => { process.exitCode = 1; console.error('compaction_fixture_shutdown_failed'); }); }, 50); return { stopping: true }; });
   url = await app.listen({ host: '127.0.0.1', port: 0 });

@@ -49,7 +49,7 @@ test('§11 测试七：重启后项目/对话/消息/工作区关联全部恢复
   const open = (): Running => {
     const db = openDatabase(config.dbPath);
     migrate(db);
-    return { app: buildServer({ config, db }), db };
+    return { app: buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db }), db };
   };
 
   let running = open();

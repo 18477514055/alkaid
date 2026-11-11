@@ -355,7 +355,22 @@ export type AutoApproveOutcome = { applied: string[]; skipped: AutoApproveSkip[]
  * - 失败不重试、不把提案改成 conflict/rejected、不抛出（调用方还会再兜一层 catch）。
  * - 开关关闭时**一条写都不发生**，连事务都不开。
  */
-export function autoApproveOnTurnEnd(db: DatabaseSync, projectId: string): AutoApproveOutcome {
+export function autoApproveOnTurnEnd(
+  db: DatabaseSync,
+  projectId: string,
+  /**
+   * ★ 只批准**这个对话自己提交的**提案（2026-11-11 审计 `ALK-HIGH-05`）。
+   *
+   * 原来不传时是本项目**全部** pending 一起自动应用 —— 那等于绕过了维护 AI 的
+   * "多作者合并审查"：维护 AI 存在的理由就是等项目里 ≥2 个对话都结束、再把不同作者的
+   * 提案**合并**处理；轮末自动批准把别人的提案先一步应用掉，
+   * 维护 AI 看到的就是"已经生效了"，合并语义直接消失，而且用户完全不知道。
+   *
+   * 现在的判据：**只动本轮这个对话自己写的**。别人的留给维护 AI / 人工。
+   * 不传则退回原来的项目级行为（测试与显式调用方仍可整体批准）。
+   */
+  onlyConversationId?: string,
+): AutoApproveOutcome {
   const outcome: AutoApproveOutcome = { applied: [], skipped: [] };
   if (!config(db, projectId).autoApproveOnTurnEnd) return outcome;
   transaction(db, () => {
@@ -368,7 +383,9 @@ export function autoApproveOnTurnEnd(db: DatabaseSync, projectId: string): AutoA
       .get(projectId, new Date(Date.now() - 180_000).toISOString())) return;
     const pendingRows = db.prepare(
       "SELECT * FROM memory_proposals WHERE project_id = ? AND status = 'pending' ORDER BY created_at, id",
-    ).all(projectId).map(toProposal);
+    ).all(projectId).map(toProposal)
+      // ★ 只保留本轮对话自己提交的（见上面 `onlyConversationId` 的说明）
+      .filter((p) => onlyConversationId === undefined || p.conversationId === onlyConversationId);
     const groups = new Map<string, MemoryProposal[]>();
     for (const p of pendingRows) {
       const group = groups.get(p.recordId);
@@ -436,26 +453,34 @@ export function updatePendingProposalText(
     if (patch.content !== undefined) text(patch.content, 'content', 20_000, p.operation === 'delete');
     const rawContent = patch.content ?? p.content;
     safeContent(`${title}\n${rawContent}`);
+    /**
+     * ★★ 2026-11-11 审计 `ALK-HIGH-04`：这里**必须**和 `submitProposal` 过同一道校验。
+     *
+     * 原来编辑暂存文本只做了「标题 + 正文非空 / 长度」检查，跳过了
+     * `validateWorkbenchArtifact` —— 于是结构化制品（分流三桶 / 交接单 / 意图 / 扩展）可以被改成
+     * 结构不合法的东西**顺利写到库里**，等维护 AI 应用时才炸；而应用层还有一条更硬的规则
+     * （`结构制品只能逐字应用单个来源提案`，见 applyProposal 里那段），
+     * 两处判据不一致 ⇒ 用户看到的是一句"莫名其妙的失败"。
+     * 现在编辑与提交走同一套规范化 + 同一套制品校验。
+     */
+    validateWorkbenchArtifact(db, projectId, p.recordId, p.kind, p.operation, rawContent);
     // 与提交时同一套规范化：结构化 kind 的正文是"被校验过的 JSON 字符串"，
     // 绕过它直接写库会让这条提案在应用时被存储层拒绝（用户看到的是莫名其妙的失败）。
     const storedContent = prepareStructuredProposalContent(db, projectId, p.recordId, title, p.kind, p.operation, rawContent);
-    // input_json 跟着文本走，保证"同一 idempotencyKey + 同一参数"仍然幂等；
-    // 参数变了的重复提交仍按既有规则 409。解析不了就传 NULL，由 COALESCE 保留原值
-    //（坏数据不在这里修，也绝不用空串覆盖掉它）。
-    const row = db.prepare('SELECT input_json FROM memory_proposals WHERE project_id = ? AND id = ?').get(projectId, p.id);
-    const storedInput = typeof row?.['input_json'] === 'string' ? row['input_json'] : null;
-    let inputJson: string | null = null;
-    if (storedInput !== null) {
-      try {
-        const parsed: unknown = JSON.parse(storedInput);
-        if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          inputJson = JSON.stringify({ ...(parsed as Record<string, unknown>), title, content: rawContent });
-        }
-      } catch { /* 保留原值（下面 COALESCE 生效） */ }
-    }
-    // ★ 注意 SET 列表里**没有 base_revision**：这是刻意的，不是漏写。
-    db.prepare(`UPDATE memory_proposals SET title = ?, content = ?, input_json = COALESCE(?, input_json)
-      WHERE project_id = ? AND id = ?`).run(title, storedContent, inputJson, projectId, p.id);
+    /**
+     * ★★ 2026-11-11 审计 `ALK-HIGH-04`（第二半）：**不要**改写 `input_json`。
+     *
+     * `input_json` 是 `submitProposal` 的**幂等指纹**（`existing.input_json !== normalized ⇒ 409`）。
+     * 原来这里把 title/content 拼回 `input_json`，于是"编辑过文本的提案"指纹被永久改掉：
+     * 之后任何用**原参数**重试的提交都会被判成"同一 key 不同参数"→ 409，
+     * 而按新参数重试又不是同一个 key —— 两条路都走不通，重放保护变成了死锁。
+     *
+     * 判据：编辑改的是**内容**（`title` / `content` 两列），不该动**提交指纹**。
+     * 编辑本身有 `proposal.edit` 事件留痕，审计上看得到"谁在什么时候改了什么"。
+     */
+    // ★ 注意 SET 列表里**没有 base_revision**，也**没有 input_json**：都是刻意的。
+    db.prepare(`UPDATE memory_proposals SET title = ?, content = ?
+      WHERE project_id = ? AND id = ?`).run(title, storedContent, projectId, p.id);
     event(db, projectId, p.id, 'proposal.edit', {
       proposalId: p.id, conversationId: patch.conversationId,
       fields: [...(patch.title === undefined ? [] : ['title']), ...(patch.content === undefined ? [] : ['content'])],

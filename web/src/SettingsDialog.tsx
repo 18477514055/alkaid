@@ -2,7 +2,7 @@ import { useState, type ReactElement, type ReactNode } from 'react';
 
 import './settings-dialog.css';
 import { SetupDialog } from './SetupDialog.tsx';
-import { ToolsPanel } from './ToolsPanel.tsx';
+import { ToolGatePanel } from './ToolGatePanel.tsx';
 import type { PluginDto, ProviderDto } from './api.ts';
 import type { GeneralSettings, ThinkingEffortSetting } from '../../src/shared/settings.ts';
 import { DEFAULT_GENERAL, MAX_OUTPUT_CHARS, MAX_STEPS, MIN_OUTPUT_CHARS, MIN_STEPS, delegateModelKey } from '../../src/shared/settings.ts';
@@ -436,12 +436,12 @@ export function SettingsDialog(props: Props): ReactElement {
                   </div>
 
                   {/*
-                    ★ 白名单只在"列出了具体模型"时才显示勾选清单。
-                    「不限制」和「一个都不许」是两种**整体**状态，它们下面再挂一列勾选框
-                    会让人以为勾了才生效 —— 那是错的。
+                    ★★ 2026-11-11 审计 `ALK-HIGH-08`：这张清单**必须一直显示**。
+                    原来只在"已经选了至少一个模型"时才渲染 —— 于是从「不限制」或「一个都不许」
+                    出发**永远没有第一个可勾的复选框**，用户被锁死在两种整体状态里，
+                    白名单功能在 UI 上等于不存在。现在：勾一个就从空列表变成那一个。
                   */}
-                  {props.general.delegateAllowedModels !== null && props.general.delegateAllowedModels.length > 0 ? (
-                    <div className="set-model-list">
+                  <div className="set-model-list">
                       {props.providers.map((provider) => (
                         <div key={provider.id} className="set-model-group">
                           <div className="set-model-provider">{provider.name}</div>
@@ -475,7 +475,6 @@ export function SettingsDialog(props: Props): ReactElement {
                         </div>
                       ))}
                     </div>
-                  ) : null}
 
                   <p className="settings-note">
                     {props.general.delegateAllowedModels === null
@@ -500,11 +499,12 @@ export function SettingsDialog(props: Props): ReactElement {
 
             {tab === 'tools' && (
               <>
+                {/*
+                  工具门控（v18）：**全局默认**那一层 —— 与"某个对话的工具集"是同一个面板，
+                  区别只在有没有 conversationId。旧的平铺式 ToolsPanel 已退役。
+                */}
                 <div className="settings-embed">
-                  <ToolsPanel
-                    permissionMode={props.permissionMode}
-                    onClose={() => setTab('general')}
-                  />
+                  <ToolGatePanel conversationId={null} onClose={() => setTab('general')} />
                 </div>
                 {/* MCP 是"工具"的子分区：它们最终都是工具，只是来源不同 */}
                 {props.panes?.mcp !== undefined && (

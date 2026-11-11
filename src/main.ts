@@ -8,16 +8,28 @@ import { recoverInterrupted } from './core/agent/delegation.ts';
 import { disposeMcpManager, loadMcpServers } from './core/mcp/registry.ts';
 import { createMcpConfigureTool, listMcpServers } from './core/mcp/store.ts';
 import { PluginHost } from './core/plugin/host.ts';
+import { hardenDataHome } from './core/security/harden-data-home.ts';
 import { openDatabase } from './core/store/db.ts';
 import { migrate } from './core/store/schema.ts';
 import { createDefaultRegistry } from './core/tools/index.ts';
-import { buildServer } from './server/app.ts';
+import { buildServer, getLocalAuth } from './server/app.ts';
+import { pruneStepEvents } from './core/store/audit.ts';
 
 const config = loadConfig();
 ensureHome(config);
 
 const db = openDatabase(config.dbPath);
 const schemaVersion = migrate(db);
+
+/**
+ * ★★ 验收缺口修复（2026-11-11）：把数据目录与其中的敏感文件降为「仅属主 + Medium NRNW」。
+ *
+ * 实测过：只保护 `local-auth-…` 凭证目录时，**真 Low 进程**仍能读到
+ * `secrets.json`（全部 API Key 明文）与 `alkaid.db`（全部会话）——
+ * 而 `workspace` 档（默认）下模型只要跑一次 `pwsh` 就能读走。
+ * 放在 `migrate` 之后：那时库文件与 WAL 都已生成，显式再打一次标签才覆盖得到。
+ */
+hardenDataHome(config.home);
 
 // 工具注册表在插件之前建好 —— 插件把工具注册进同一个表
 const tools = createDefaultRegistry(db, { secretsPath: config.secretsPath });
@@ -31,6 +43,18 @@ const tools = createDefaultRegistry(db, { secretsPath: config.secretsPath });
  */
 const interrupted = recoverInterrupted(db);
 if (interrupted > 0) console.log(`[alkaid] 修复 ${String(interrupted)} 条被中断的委派（上次进程退出时还在跑）`);
+
+/**
+ * ★ 裁剪步骤审计表（审计 `ALK-P3-⑦`）：这张表每步插一条、此前永不删除。
+ * 在**启动时**裁一次就够 —— 它只是诊断流水，不是证据链；高频裁剪的写放大比省下的空间更贵。
+ */
+try {
+  const pruned = pruneStepEvents(db);
+  if (pruned > 0) console.log(`[alkaid] 裁剪 ${String(pruned)} 条过旧的步骤审计`);
+} catch (error) {
+  // 裁剪失败绝不能拦住启动（老库/只读句柄等极端情况）
+  console.warn('[alkaid] 步骤审计裁剪失败（忽略）：', error instanceof Error ? error.message : String(error));
+}
 
 const pluginsDir = process.env['ALKAID_PLUGINS']?.trim() ?? join(config.home, 'plugins');
 const plugins = new PluginHost({ dir: pluginsDir, registry: tools });
@@ -56,7 +80,20 @@ if (existsSync(webDist)) {
 
 await app.listen({ host: config.host, port: config.port });
 
-console.log(`[alkaid] listening on http://${config.host}:${config.port}`);
+const listening = app.server.address();
+if (listening === null || typeof listening === 'string') throw new Error('Expected TCP listener');
+const localAuth = getLocalAuth(app);
+// Private parent/child IPC only: never stdout, argv, env or renderer bootstrap payloads.
+if (typeof process.send === 'function') {
+  process.send({ type: 'alkaid:ready', url: `http://127.0.0.1:${String(listening.port)}`, localToken: localAuth?.token ?? null });
+}
+if (localAuth === null) {
+  console.warn('[alkaid] WARNING: ALKAID_DISABLE_LOCAL_TOKEN=1 — 本机令牌鉴权已禁用。');
+} else {
+  console.log(`[alkaid] 本机授权已启用；tokenPath=${localAuth.tokenPath}`);
+  console.log(`[alkaid] 浏览器首次访问需手工输入一次性配对码（10分钟、单次）；pairingPath=${localAuth.pairingPath}`);
+}
+console.log(`[alkaid] listening on http://${config.host}:${String(listening.port)}`);
 console.log(`[alkaid] home=${config.home} schema=v${schemaVersion}`);
 console.log(`[alkaid] web=${existsSync(webDist) ? webDist : '未构建（用 pnpm web:dev 开发）'}`);
 console.log(`[alkaid] plugins=${pluginsDir}`);

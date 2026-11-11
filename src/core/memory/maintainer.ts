@@ -352,6 +352,26 @@ export class MemoryMaintainer {
     };
   }
 
+  /**
+   * ★ 2026-11-11 审计 `ALK-MED-08` / `P2-②`：**停掉某个项目**的维护调度。
+   *
+   * `close()` 只在服务退出时用；而"删项目"是一个更常见的动作 —— 删完之后那个项目的定时器还在，
+   * 下一次触发会去读一个已经不存在的项目（写一张歪快照、或干脆把 job 挂成 running 卡住）。
+   * 这里只清这个项目的 timer 并中止它的在跑任务，不影响别的项目。
+   */
+  async stopProject(projectId: string): Promise<void> {
+    const timer = this.timers.get(projectId);
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      this.timers.delete(projectId);
+    }
+    this.activity.delete(projectId);
+    const active = this.active.get(projectId);
+    if (active === undefined) return;
+    active.controller.abort();
+    await active.done.catch(() => undefined);
+  }
+
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;

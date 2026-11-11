@@ -22,7 +22,7 @@ async function fixture(t: TestContext) {
   const foreign = insertConversation(db, { projectId: 'http-other', providerId: provider.id, model: 'offline' }).id;
   // No home is created: memory is the real in-memory SQLite database, not workspace files.
   const config = loadConfig({ ALKAID_HOME: join(tmpdir(), `unused-memory-record-http-${randomUUID()}`) });
-  const app = buildServer({ db, config });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ db, config });
   const origin = await app.listen({ host: '127.0.0.1', port: 0 });
   t.after(async () => { await app.close(); db.close(); });
   const base = '/api/projects/http-p/memory';

@@ -136,6 +136,20 @@ test('execution tool: resident maintenance is callable in all FIVE file modes an
   } finally { f.db.close(); }
 });
 
+test('execution tool: 更新失败不烧令牌（审计 HIGH-05）', async () => {
+  const f = fixture(); try {
+    const tool = createExecutionBoardTool(f.db);
+    board(await tool.execute({ action: 'read' }, f.ctx));
+    // ① 参数非法 ⇒ 这次失败不该消耗令牌
+    const bad = await tool.execute({ action: 'update', baseRevision: 0, tasks: [{ id: 'x' }] }, f.ctx);
+    assert.equal(bad.ok, false);
+    // ② 立刻用同一个 baseRevision 重试（**不重新 read**）⇒ 必须能成功
+    assert.equal(board(await tool.execute({ action: 'update', baseRevision: 0, goal: active }, f.ctx)).revision, 1);
+    // ③ 成功之后令牌才被消费 ⇒ 再来一次不带 read 的更新仍要 409
+    assert.equal((await tool.execute({ action: 'update', baseRevision: 1, activity: 'after success' }, f.ctx)).ok, false);
+  } finally { f.db.close(); }
+});
+
 test('execution tool: model must read in current conversation/turn before every update and reread after user CAS conflict', async () => {
   const f = fixture(); try {
     const tool = createExecutionBoardTool(f.db);

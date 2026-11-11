@@ -31,7 +31,7 @@ async function withServer(
   const config = { ...loadConfig({ ALKAID_HOME: home } as NodeJS.ProcessEnv), host, trustedHosts };
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
   try {
     await run({ app });
   } finally {
@@ -72,6 +72,35 @@ test('策略：白名单里的主机名会被加进来（用域名访问的场�
 });
 
 // ───────────────────────── 坏请求必须被拒 ─────────────────────────
+
+test('★★ 对外监听时，不带 Origin 的**写**请求必须被拒（审计 ALK-CRIT-01）', async () => {
+  await withServer('0.0.0.0', async ({ app }) => {
+    // 读：放行（curl 看健康、桌面壳轮询都不带 Origin）
+    const read = await app.inject({ method: 'GET', url: '/api/healthz', headers: { host: '127.0.0.1' } });
+    assert.equal(read.statusCode, 200, '读请求不该被拦');
+
+    // 写：没有 Origin ⇒ 403（否则绑 0.0.0.0 等于把 API 交给整个局域网）
+    const write = await app.inject({
+      method: 'POST',
+      url: '/api/providers',
+      headers: { host: '127.0.0.1' },
+      payload: { name: 'x', baseUrl: 'http://127.0.0.1:9/v1' },
+    });
+    assert.equal(write.statusCode, 403, '写请求没带 Origin 却被放行');
+  });
+});
+
+test('★ 绑回环时，不带 Origin 的写请求仍然放行（CLI / 门禁夹具 / 桌面壳）', async () => {
+  await withServer('127.0.0.1', async ({ app }) => {
+    const write = await app.inject({
+      method: 'POST',
+      url: '/api/providers',
+      headers: { host: '127.0.0.1' },
+      payload: { name: 'p-ro', baseUrl: 'http://127.0.0.1:9/v1' },
+    });
+    assert.notEqual(write.statusCode, 403, '回环绑定不该要求 Origin');
+  });
+});
 
 test('★★ 伪造 Origin ⇒ 403（跨站请求伪造）', async () => {
   await withServer('0.0.0.0', async ({ app }) => {

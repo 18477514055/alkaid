@@ -1,0 +1,317 @@
+/**
+ * 工具可见性门控（v18）—— 照用户给 DSH 写的那个插件的观感：
+ * 一行一组（勾选 + 个数 + 体积 + 约 token + 最近使用），可展开到单个工具。
+ */
+.tool-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tg-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tg-head h3 {
+  margin: 0;
+  font-size: var(--fs-s);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.tg-sub {
+  margin: 2px 0 0;
+  font-size: var(--fs-xxs);
+  color: var(--ink-4);
+}
+
+.tg-head-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.tg-error,
+.tg-notice {
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xxs);
+}
+
+.tg-error { background: var(--danger-soft, #fdecec); color: var(--danger, #b42318); }
+.tg-notice { background: var(--surface-3); color: var(--ink-2); }
+
+.tg-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tg-filter input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-xxs);
+}
+
+.tg-total {
+  flex: none;
+  font-size: var(--fs-xxs);
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.tg-groups {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.tg-group + .tg-group { border-top: 1px solid var(--line-2); }
+
+.tg-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  min-width: 0;
+}
+
+.tg-row:hover { background: var(--surface-2); }
+
+.tg-tri {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-5);
+  cursor: pointer;
+  transform: rotate(90deg);
+  transition: transform 0.14s;
+}
+
+.tg-group.collapsed .tg-tri { transform: rotate(0deg); }
+
+.tg-check { flex: none; margin: 0; }
+
+.tg-name {
+  flex: none;
+  font-size: var(--fs-xxs);
+  font-weight: 550;
+  color: var(--ink);
+  max-width: 34%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tg-hint {
+  flex: none;
+  font-size: 10px;
+  color: var(--ink-5);
+}
+
+.tg-stats {
+  margin-left: auto;
+  flex: none;
+  font-size: 11px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tg-expand {
+  flex: none;
+  border: 0;
+  background: transparent;
+  padding: 0 2px;
+  font-size: 10.5px;
+  color: var(--ink-4);
+  cursor: pointer;
+}
+
+.tg-expand:hover { color: var(--ink); }
+
+.tg-tools {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px dashed var(--line-2);
+  background: var(--surface-2);
+}
+
+.tg-tool {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 30px;
+  min-width: 0;
+}
+
+.tg-tool + .tg-tool { border-top: 1px solid var(--line-1, var(--line-2)); }
+.tg-tool.staged { background: var(--warn-soft, #fff8e6); }
+
+.tg-tool-name {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  max-width: 26%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tg-tool-oneliner {
+  min-width: 0;
+  flex: 1;
+  font-size: 11px;
+  color: var(--ink-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tg-tool-stats {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--ink-5);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tg-seg {
+  flex: none;
+  display: inline-flex;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+  overflow: hidden;
+}
+
+.tg-seg button {
+  border: 0;
+  background: transparent;
+  padding: 1px 6px;
+  font-size: 10.5px;
+  color: var(--ink-4);
+  cursor: pointer;
+}
+
+.tg-seg button + button { border-left: 1px solid var(--line-2); }
+.tg-seg button.on { background: var(--ink); color: var(--surface-1, #fff); }
+.tg-seg button.inherit.on { background: var(--surface-4); color: var(--ink); }
+
+.tg-badge {
+  flex: none;
+  font-size: 10px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--surface-4);
+  color: var(--ink-4);
+}
+
+.tg-badge.staged { background: var(--warn-soft, #fff8e6); color: var(--warn, #8a5a00); }
+.tg-badge.default { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; }
+
+.tg-empty {
+  margin: 0;
+  padding: 12px;
+  font-size: var(--fs-xxs);
+  color: var(--ink-4);
+  text-align: center;
+}
+
+.tg-savebar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
+.tg-dirty { font-size: var(--fs-xxs); color: var(--ink-4); }
+.tg-savebar-actions { margin-left: auto; display: flex; gap: 6px; }
+
+.tg-templates {
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  padding: 6px 8px;
+}
+
+.tg-templates summary {
+  font-size: var(--fs-xxs);
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.tg-template-list {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tg-template-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-xxs);
+  color: var(--ink-2);
+}
+
+.tg-template-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tg-template-actions { margin-left: auto; display: flex; gap: 4px; }
+.tg-empty-line { color: var(--ink-5); }
+
+.tg-template-new {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.tg-template-new input { flex: 1; min-width: 0; font-size: var(--fs-xxs); }
+
+.tg-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 6px 0 0;
+  font-size: 10.5px;
+  color: var(--ink-5);
+}
+
+/* 输入框下面那个"工具集"按钮 */
+.tool-gate-trigger {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line-2);
+  background: transparent;
+  border-radius: var(--r-xs);
+  padding: 2px 7px;
+  font-size: 11px;
+  color: var(--ink-4);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tool-gate-trigger:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--line-3);
+}
+
+.tool-gate-trigger:disabled { opacity: 0.5; cursor: default; }

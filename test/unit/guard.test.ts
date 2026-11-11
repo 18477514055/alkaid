@@ -83,8 +83,48 @@ test('★ junction 逃逸被真实路径复核挡住（CVE-2026-39861 的形状�
   }
 });
 
-test('完全权限不做根限制，但仍返回规范化路径', () => {
+test('★ 深层不存在的子目录不能把 junction 复核「绕成」放行（审计 CRITICAL-01）', () => {
   const { ws, outside } = makeDirs();
+
+  try {
+    symlinkSync(outside, join(ws, 'escape'), 'junction');
+  } catch {
+    return; // 建不了链接的环境跳过，不假装通过
+  }
+
+  const roots = rootsFor('workspace', ws, null);
+  /**
+   * 判决点：`canonicalize` 原来回溯**最多 64 层**，耗尽就原样返回词法路径（fail-open）。
+   * 于是「junction + 65 层不存在的子目录」能同时骗过两个检查：
+   * 词法上以 `ws/` 开头（看起来在里），真实路径明明在外面。
+   * 现在它必须一路回溯到真正存在的祖先，或者直接拒绝（fail-closed）。
+   */
+  const deep = join(ws, 'escape', ...Array.from({ length: 65 }, (_, index) => `d${String(index)}`), 'pwn.txt');
+  const verdict = checkAccess(roots, 'write', normalizePath(deep));
+  assert.equal(verdict.ok, false, '65 层不存在的子目录把 junction 逃逸放行了');
+});
+
+test('★ 悬空链接（指向尚不存在目标的 junction）不能绕过真实路径复核（审计 ALK-CRIT-03）', () => {
+  const { root, ws } = makeDirs();
+
+  // 指向"工作区外、且尚不存在"的目录 —— realpath 会抛 ENOENT，lstat 仍看得到它
+  const outsideNew = join(root, 'outside-new-dir');
+  try {
+    symlinkSync(outsideNew, join(ws, 'escape'), 'junction');
+  } catch {
+    return; // 建不了链接的环境跳过
+  }
+
+  const roots = rootsFor('workspace', ws, null);
+  /**
+   * 一步就够：`ws/escape/pwn.txt`。
+   * 旧实现会把抛 ENOENT 的 `escape` 当普通文件名剥掉、退回 `ws` 然后放行。
+   */
+  const verdict = checkAccess(roots, 'write', normalizePath(join(ws, 'escape', 'pwn.txt')));
+  assert.equal(verdict.ok, false, '悬空链接把写入送到了工作区外');
+});
+
+test('完全权限不做根限制，但仍返回规范化路径', () => {  const { ws, outside } = makeDirs();
   const roots = rootsFor('full', ws, null);
   const result = checkAccess(roots, 'write', normalizePath(join(outside, 'x.txt')));
   assert.equal(result.ok, true);

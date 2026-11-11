@@ -72,7 +72,7 @@ updateExecutionBoard(db, project.id, running.childConversationId, {
   activity: '开始读',
 }, 'model');
 
-const app = buildServer({ config, db });
+const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 await app.register(fastifyStatic, { root: join(import.meta.dirname, '..', 'dist', 'web'), prefix: '/' });
 const baseURL = await app.listen({ host: '127.0.0.1', port: 0 });
 

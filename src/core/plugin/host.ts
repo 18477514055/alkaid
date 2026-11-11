@@ -119,9 +119,35 @@ export class PluginHost {
     return this.list();
   }
 
+  /**
+   * ★★ 2026-11-11 审计 `ALK-MED-10`：同一个插件**串行启动**。
+   *
+   * `start()` 是 `await #stop(runtime)` 之后再 `spawn`。两次并发调用（双击「重新连接」、
+   * 或者「保存设置」与「重连」同时到）会交错：A 停完 → B 停（此时没东西可停）→ B 起 →
+   * A 起 ⇒ **两个宿主进程同时活着**，各自注册一遍工具、各自发一遍事件。
+   * 症状是工具列表里出现重复项、工具调用被处理两次。
+   *
+   * 判据：每个插件一条串行链。后到的调用排队等前一个结束，绝不并行。
+   */
+  readonly #starting = new Map<string, Promise<void>>();
+
   async start(id: string): Promise<void> {
     const runtime = this.#runtimes.get(id);
     if (runtime === undefined || this.#disposed) return;
+
+    const previous = this.#starting.get(id) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(() => this.#startOnce(runtime));
+    this.#starting.set(id, next);
+    try {
+      await next;
+    } finally {
+      // 只有还是自己这条链时才清掉，避免把后来者的链删了
+      if (this.#starting.get(id) === next) this.#starting.delete(id);
+    }
+  }
+
+  async #startOnce(runtime: Runtime): Promise<void> {
+    if (this.#disposed) return;
 
     await this.#stop(runtime);
     this.#unregisterTools(runtime);

@@ -214,7 +214,7 @@ test('端到端：POST /compact 之后，新一轮请求只剩「摘要 + 最近
   ensureHome(config);
   const db = openDatabase(config.dbPath);
   migrate(db);
-  const app = buildServer({ config, db });
+  const app = buildServer({ localToken: null, /* Legacy fixture tests business contracts, not authentication defaults. */ config, db });
 
   try {
     const project = insertProject(db, { id: 'compact-http-project', name: 'HTTP compaction fixture', sharedDir: join(home, 'unused-shared') });

@@ -27,6 +27,8 @@ type Props = {
    */
   visibleTabs?: readonly PanelTab[];
   defaultTab?: PanelTab;
+  /** 高级区块是否**默认展开**（右栏设置 `panel.advancedOpen`，审计 `ALK-MED-04`） */
+  advancedOpen?: boolean;
   /**
    * ★ 从委派看板点进某个子代理/队友的对话（2026-11-10 用户要求）。
    * 不传 = 看板只显示不可点（保持旧调用方行为）。
@@ -540,7 +542,7 @@ export function MemoryWorkbench(props: Props): React.ReactElement {
     return { group: fallback, page: GROUPS[fallback].pages[0]![0] };
   })();
   const [group, setGroup] = useState<Group>(initial.group); const [page, setPage] = useState<Page>(initial.page);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(props.advancedOpen === true);
   const [source, setSource] = useState(props.conversationId ?? ''); const [revision, setRevision] = useState(0);
   const [clock, setClock] = useState(0); const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null); const [notice, setNotice] = useState<string | null>(null);

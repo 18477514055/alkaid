@@ -21,6 +21,19 @@ export function normalizePath(input: string): string {
   const isDriveAbsolute = /^[A-Za-z]:($|\/)/.test(unified);
   const isAbsolute = unified.startsWith('/') || isDriveAbsolute;
 
+  /**
+   * ★ 2026-11-11 审计 `ALK-MED-01`：三种 Windows 路径形状要区别对待，否则围栏判据会被糊弄：
+   * - `C:\x`（盘符绝对）⇒ `C:/x`
+   * - `C:`（**盘符相对**，含义是"我在 C 盘上的当前目录"）⇒ 绝不能当成 `C:/`。
+   *   原来当成盘符根了：`C:` 与 `C:/` 同形，一个"写当前目录"的请求会被当成"写盘符根"。
+   * - `\\server\share\x`（UNC）⇒ 保留 `//server/share/x` 两个斜杠。
+   *   原来被压成 `/server/share/x`，看起来像"本地根下的一个普通绝对路径"，
+   *   与本地根比较时既可能误判在里、也可能误判在外。
+   */
+  const isDriveRoot = /^[A-Za-z]:[\\/]$/.test(unified) || /^[A-Za-z]:$/.test(unified);
+  const isDriveBare = /^[A-Za-z]:$/.test(unified);
+  const isUnc = /^\/\//.test(unified);
+
   const out: string[] = [];
   for (const segment of unified.split('/')) {
     if (segment === '' || segment === '.') continue;
@@ -36,7 +49,12 @@ export function normalizePath(input: string): string {
   }
 
   const body = out.join('/');
-  if (isDriveAbsolute) return body.length === 0 ? `${unified.slice(0, 2)}/` : body;
+  const drive = unified.slice(0, 2);
+  // 盘符相对（`C:`）：原样保留盘符，**不**补成盘符根
+  if (isDriveBare && body === '') return drive;
+  if (isDriveAbsolute) return body === drive ? `${drive}/` : body;
+  // UNC：保留 `//`
+  if (isUnc) return body.length === 0 ? '//' : `//${body}`;
   if (isAbsolute) return `/${body}`;
   return body;
 }

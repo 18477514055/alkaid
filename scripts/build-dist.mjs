@@ -16,7 +16,15 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const RELEASE = join(ROOT, 'release');
+/**
+ * ★ 输出目录可以外部指定。
+ *   为什么需要：**桌面端开着的时候**（YaoGuang.exe 正在跑），Windows 会锁住
+ *   `release/YaoGuang-win32-x64`，packager 的 `--overwrite` 会 `EBUSY: rmdir`。
+ *   这时用 `ALKAID_RELEASE_DIR=release-next` 打到旁边去，不必杀掉用户正在用的进程。
+ */
+const RELEASE = process.env['ALKAID_RELEASE_DIR']?.trim()
+  ? join(ROOT, process.env['ALKAID_RELEASE_DIR'].trim())
+  : join(ROOT, 'release');
 const STAGE = join(RELEASE, 'stage');
 const APP_NAME = 'YaoGuang';
 const ELECTRON_VERSION = '45.2.3';
